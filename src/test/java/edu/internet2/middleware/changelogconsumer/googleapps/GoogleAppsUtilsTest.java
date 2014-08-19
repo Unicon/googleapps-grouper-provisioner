@@ -152,6 +152,13 @@ public class GoogleAppsUtilsTest {
     }
 
     @Test
+    public void testRetrieveMissingUser() throws GeneralSecurityException, IOException {
+        Directory directory = getDirectoryService();
+        User user = GoogleAppsUtils.retrieveUser(directory, "missing-" + TEST_USER);
+        Assert.assertTrue(user == null);
+    }
+
+    @Test
     public void testRetrieveAllGroups() throws GeneralSecurityException, IOException {
         Directory directory = getDirectoryService();
         List<Group> allGroups = GoogleAppsUtils.retrieveAllGroups(directory);
@@ -163,6 +170,13 @@ public class GoogleAppsUtilsTest {
         Directory directory = getDirectoryService();
         Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
         Assert.assertTrue(group.getName().equalsIgnoreCase("Test Group"));
+    }
+
+    @Test
+    public void testRetrieveMissingGroup() throws GeneralSecurityException, IOException {
+        Directory directory = getDirectoryService();
+        Group group = GoogleAppsUtils.retrieveGroup(directory, "missing-" + TEST_GROUP);
+        Assert.assertTrue(group == null);
     }
 
     @Test
