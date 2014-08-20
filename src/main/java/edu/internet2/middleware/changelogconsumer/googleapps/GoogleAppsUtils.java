@@ -78,21 +78,7 @@ public class GoogleAppsUtils {
                 return request.execute();
 
             } catch (GoogleJsonResponseException ex){
-                GoogleJsonError e = ex.getDetails();
-
-                if (e.getCode() == 403
-                        && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                        || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                    try {
-                        Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
-                } else {
-                    // Other error, re-throw.
-                    throw ex;
-                }
+                HandleGoogleJsonResponseException(ex, n);
 
             } catch(IOException e) {
                 LOG.error("An unknown error occurred: " + e);
@@ -117,21 +103,7 @@ public class GoogleAppsUtils {
                 return request.execute();
 
             } catch (GoogleJsonResponseException ex){
-                GoogleJsonError e = ex.getDetails();
-
-                if (e.getCode() == 403
-                        && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                        || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                    try {
-                        Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
-                } else {
-                    // Other error, re-throw.
-                    throw ex;
-                }
+                HandleGoogleJsonResponseException(ex, n);
 
             } catch(IOException e) {
                 LOG.error("An unknown error occurred: " + e);
@@ -156,21 +128,7 @@ public class GoogleAppsUtils {
                 break;
 
             } catch (GoogleJsonResponseException ex){
-                GoogleJsonError e = ex.getDetails();
-
-                if (e.getCode() == 403
-                        && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                        || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                    try {
-                        Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
-                } else {
-                    // Other error, re-throw.
-                    throw ex;
-                }
+                HandleGoogleJsonResponseException(ex, n);
 
             } catch(IOException e) {
                 LOG.error("An unknown error occurred: " + e);
@@ -199,21 +157,7 @@ public class GoogleAppsUtils {
                     break; //success, break out of the for loop.
 
                 } catch (GoogleJsonResponseException ex){
-                    GoogleJsonError e = ex.getDetails();
-
-                    if (e.getCode() == 403
-                            && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                            || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                        try {
-                            Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                        } catch (InterruptedException ie) {
-                            ie.printStackTrace();
-                        }
-                    } else {
-                        // Other error, re-throw.
-                        throw ex;
-                    }
+                    HandleGoogleJsonResponseException(ex, n);
 
                 } catch(IOException e) {
                     LOG.debug("We are probably just out of pages to go through, but maybe not: " + e);
@@ -240,24 +184,7 @@ public class GoogleAppsUtils {
                 return request.execute();
 
             } catch (GoogleJsonResponseException ex){
-                GoogleJsonError e = ex.getDetails();
-
-                if (e.getCode() == 403
-                        && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                        || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                    try {
-                        Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
-                } else if (e.getCode() == 404) {//Not found
-                    return null;
-
-                } else {
-                    // Other error, re-throw.
-                    throw ex;
-                }
+                if (HandleGoogleJsonResponseException(ex, n)) return null;
 
             } catch(IOException e) {
                 LOG.error("An unknown error occurred: " + e);
@@ -287,21 +214,7 @@ public class GoogleAppsUtils {
                     break; //success, break out of the for loop.
 
                 } catch (GoogleJsonResponseException ex){
-                    GoogleJsonError e = ex.getDetails();
-
-                    if (e.getCode() == 403
-                            && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                            || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                        try {
-                            Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                        } catch (InterruptedException ie) {
-                            ie.printStackTrace();
-                        }
-                    } else {
-                        // Other error, re-throw.
-                        throw ex;
-                    }
+                    HandleGoogleJsonResponseException(ex, n);
 
                 } catch(IOException e) {
                     LOG.debug("We are probably just out of pages to go through, but maybe not: " + e);
@@ -328,25 +241,7 @@ public class GoogleAppsUtils {
                 return request.execute();
 
             } catch (GoogleJsonResponseException ex){
-                GoogleJsonError e = ex.getDetails();
-
-                if (e.getCode() == 403
-                        && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                        || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                    try {
-                        Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
-
-                } else if (e.getCode() == 404) { //Not found
-                    return null;
-
-                } else {
-                    // Other error, re-throw.
-                    throw ex;
-                }
+                HandleGoogleJsonResponseException(ex, n);
 
             } catch(IOException e) {
                 LOG.error("An unknown error occurred: " + e);
@@ -355,6 +250,7 @@ public class GoogleAppsUtils {
 
         return null;
     }
+
 
     public static List<Member> retrieveGroupMembers(Directory directory, Group group) throws GoogleJsonResponseException {
         List<Member> members = new ArrayList<Member>();
@@ -376,21 +272,7 @@ public class GoogleAppsUtils {
                     break; //success, break out of the for loop.
 
                 } catch (GoogleJsonResponseException ex){
-                    GoogleJsonError e = ex.getDetails();
-
-                    if (e.getCode() == 403
-                            && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                            || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                        try {
-                            Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                        } catch (InterruptedException ie) {
-                            ie.printStackTrace();
-                        }
-                    } else {
-                        // Other error, re-throw.
-                        throw ex;
-                    }
+                    HandleGoogleJsonResponseException(ex, n);
 
                 } catch(IOException e) {
                     LOG.debug("We are probably just out of pages to go through, but maybe not: " + e);
@@ -416,21 +298,7 @@ public class GoogleAppsUtils {
                 return request.execute();
 
             } catch (GoogleJsonResponseException ex){
-                GoogleJsonError e = ex.getDetails();
-
-                if (e.getCode() == 403
-                        && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                        || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                    try {
-                        Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
-                } else {
-                    // Other error, re-throw.
-                    throw ex;
-                }
+                HandleGoogleJsonResponseException(ex, n);
 
             } catch(IOException e) {
                 LOG.error("An unknown error occurred: " + e);
@@ -456,21 +324,7 @@ public class GoogleAppsUtils {
                 break;
 
             } catch (GoogleJsonResponseException ex){
-                GoogleJsonError e = ex.getDetails();
-
-                if (e.getCode() == 403
-                        && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
-                        || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
-
-                    try {
-                        Thread.sleep((1 << n) * 1000 + randomGenerator.nextInt(1001));
-                    } catch (InterruptedException ie) {
-                        ie.printStackTrace();
-                    }
-                } else {
-                    // Other error, re-throw.
-                    throw ex;
-                }
+                HandleGoogleJsonResponseException(ex, n);
 
             } catch(IOException e) {
                 LOG.error("An unknown error occurred: " + e);
@@ -478,4 +332,35 @@ public class GoogleAppsUtils {
         }
     }
 
+    /**
+     * HandleGoogleJsonResponseException
+     * @param ex the GoogleJsonResponseException being handled
+     * @param interval the exponential back-off interval
+     * @return true=no record found, false=everything was handled properly
+     * @throws GoogleJsonResponseException
+     */
+    private static boolean HandleGoogleJsonResponseException(GoogleJsonResponseException ex, int interval)
+            throws GoogleJsonResponseException {
+
+        GoogleJsonError e = ex.getDetails();
+
+        if (e.getCode() == 403
+                && (e.getErrors().get(0).getReason().equals("rateLimitExceeded")
+                || e.getErrors().get(0).getReason().equals("userRateLimitExceeded"))) {
+
+            try {
+                Thread.sleep((1 << interval) * 1000 + randomGenerator.nextInt(1001));
+            } catch (InterruptedException ie) {
+                ie.printStackTrace();
+            }
+
+        } else if (e.getCode() == 404) { //Not found
+            return true;
+
+        } else {
+            // Other error, re-throw.
+            throw ex;
+        }
+        return false;
+    }
 }
