@@ -204,7 +204,7 @@ public class GoogleAppsUtilsTest {
         Directory directory = getDirectoryService();
         Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
         List<Member> members = GoogleAppsUtils.retrieveGroupMembers(directory, group);
-        Assert.assertTrue(group.getName().equalsIgnoreCase("Test Group"));
+        Assert.assertTrue(members.size() > 0);
     }
 
     @Test
