@@ -46,6 +46,8 @@ public class GoogleAppsUtils {
 
     private final static String[] scope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
 
+    private final static Random randomGenerator = new Random();
+
     //https://developers.google.com/admin-sdk/directory/v1/guides/delegation
     public static GoogleCredential getGoogleCredential(String serviceAccountEmail, String serviceAccountPKCS12FilePath,
                                         String serviceAccountUser, HttpTransport httpTransport, JsonFactory jsonFactory)
@@ -63,9 +65,8 @@ public class GoogleAppsUtils {
 
 
     public static User addUser(Directory directory, User user) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
-
         Directory.Users.Insert request = null;
+
         try {
             request = directory.users().insert(user);
         } catch (IOException e) {
@@ -103,9 +104,8 @@ public class GoogleAppsUtils {
 
 
     public static Group addGroup(Directory directory, Group group) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
-
         Directory.Groups.Insert request = null;
+
         try {
             request = directory.groups().insert(group);
         } catch (IOException e) {
@@ -142,9 +142,8 @@ public class GoogleAppsUtils {
     }
 
     public static void removeGroup(Directory directory, Group group) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
-
         Directory.Groups.Delete request = null;
+
         try {
             request = directory.groups().delete(group.getId());
         } catch (IOException e) {
@@ -181,7 +180,6 @@ public class GoogleAppsUtils {
 
 
     public static List<User> retrieveAllUsers(Directory directory) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
         List<User> allUsers = new ArrayList<User>();
 
         Directory.Users.List request = null;
@@ -229,9 +227,8 @@ public class GoogleAppsUtils {
 
 
     public static User retrieveUser(Directory directory, String userKey) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
-
         Directory.Users.Get request = null;
+
         try {
             request = directory.users().get(userKey);
         } catch (IOException e) {
@@ -271,7 +268,6 @@ public class GoogleAppsUtils {
     }
 
     public static List<Group> retrieveAllGroups(Directory directory) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
         List<Group> allGroups = new ArrayList<Group>();
 
         Directory.Groups.List request = null;
@@ -319,9 +315,8 @@ public class GoogleAppsUtils {
 
 
     public static Group retrieveGroup(Directory directory, String groupKey) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
-
         Directory.Groups.Get request = null;
+
         try {
             request = directory.groups().get(groupKey);
         } catch (IOException e) {
@@ -362,7 +357,6 @@ public class GoogleAppsUtils {
     }
 
     public static List<Member> retrieveGroupMembers(Directory directory, Group group) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
         List<Member> members = new ArrayList<Member>();
 
         Directory.Members.List request = null;
@@ -409,9 +403,8 @@ public class GoogleAppsUtils {
     }
 
     public static Member addGroupMember(Directory directory, Group group, Member member) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
-
         Directory.Members.Insert request = null;
+
         try {
             request = directory.members().insert(group.getId(), member);
         } catch (IOException e) {
@@ -448,9 +441,8 @@ public class GoogleAppsUtils {
     }
 
     public static void removeGroupMember(Directory directory, Group group, User user) throws GoogleJsonResponseException {
-        Random randomGenerator = new Random();
-
         Directory.Members.Delete request = null;
+
         try {
             request = directory.members().delete(group.getId(), user.getId());
         } catch (IOException e) {
