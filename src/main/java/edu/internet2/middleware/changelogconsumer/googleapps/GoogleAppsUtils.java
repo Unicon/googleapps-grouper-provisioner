@@ -20,9 +20,11 @@ package edu.internet2.middleware.changelogconsumer.googleapps;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.json.GenericJson;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.services.admin.directory.Directory;
+import com.google.api.services.admin.directory.DirectoryRequest;
 import com.google.api.services.admin.directory.DirectoryScopes;
 import com.google.api.services.admin.directory.model.*;
 import org.slf4j.Logger;
@@ -42,6 +44,60 @@ import java.util.Random;
  * @author John Gasper, Unicon
  */
 public class GoogleAppsUtils {
+
+    //Use a closure/handler style to make a generic handler
+    private interface ExponentialBackupHandler {
+        public Object tryBlock(DirectoryRequest request) throws GoogleJsonResponseException, IOException;
+        public void googleResponseCatchBlock(GoogleJsonResponseException ex, int interval) throws GoogleJsonResponseException;
+        public void ioCatchBlock(IOException ex);
+    }
+
+    private static Object GoogleApiCall(DirectoryRequest request, ExponentialBackupHandler ebh) throws GoogleJsonResponseException {
+        Object response = null;
+
+        for (int n = 0; n < 7; ++n) { //try exponential back-off 7 times
+            try {
+                response = ebh.tryBlock(request);
+                if (response != null){
+                    break;
+                }
+
+            } catch (GoogleJsonResponseException e){
+                ebh.googleResponseCatchBlock(e, n);
+
+            } catch(IOException e) {
+
+                ebh.ioCatchBlock(e);
+            }
+
+        }
+        return (GenericJson)response;
+    }
+
+    //Use recursion instead of for loop
+    private static Object recursive (DirectoryRequest request) throws GoogleJsonResponseException {
+        return recursive(1, request);
+    }
+
+    private static Object recursive (int interval, DirectoryRequest request) throws GoogleJsonResponseException {
+        if (interval > 7) {
+            return null;
+        } else {
+            try {
+                return request.execute();
+            } catch (GoogleJsonResponseException ex){
+                HandleGoogleJsonResponseException(ex, interval);
+
+                return recursive(++interval, request);
+            } catch(IOException e) {
+                LOG.error("An unknown error occurred: " + e);
+
+                return recursive(++interval, request);
+            }
+        }
+    }
+
+
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
 
     private final static String[] scope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
@@ -63,6 +119,46 @@ public class GoogleAppsUtils {
                 .build();
     }
 
+    //Sample closure method
+    public static User testUser(Directory directory, User user) throws GoogleJsonResponseException {
+        Directory.Users.Insert request = null;
+
+        try {
+            request = directory.users().insert(user);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        return (User)GoogleApiCall(request, new ExponentialBackupHandler() {
+            @Override
+            public Object tryBlock(DirectoryRequest request) throws GoogleJsonResponseException, IOException {
+                return request.execute();
+            }
+
+            @Override
+            public void googleResponseCatchBlock(GoogleJsonResponseException ex, int interval) throws GoogleJsonResponseException {
+                HandleGoogleJsonResponseException(ex, interval);
+            }
+
+            @Override
+            public void ioCatchBlock(IOException e) {
+                LOG.error("An unknown error occurred: " + e);
+            }
+        });
+    }
+
+    //sample recursive method
+    public static User recursiveUser(Directory directory, User user) throws GoogleJsonResponseException {
+        Directory.Users.Insert request = null;
+
+        try {
+            request = directory.users().insert(user);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        return (User) recursive(request);
+    }
 
     public static User addUser(Directory directory, User user) throws GoogleJsonResponseException {
         Directory.Users.Insert request = null;

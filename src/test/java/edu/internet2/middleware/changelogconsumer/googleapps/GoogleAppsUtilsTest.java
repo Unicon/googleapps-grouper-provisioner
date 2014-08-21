@@ -238,4 +238,45 @@ public class GoogleAppsUtilsTest {
             }
         }
     }
+
+
+
+    //////////////
+    @Test
+    public void testRecursiveUser() throws GeneralSecurityException, IOException {
+        Directory directory = getDirectoryService();
+        User user = new User();
+        user.setName(new UserName().setFamilyName("Gasper").setGivenName("Test"))
+                .setPrimaryEmail(TEST_USER)
+                .setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+        try {
+            User currentUser = GoogleAppsUtils.recursiveUser(directory, user);
+            Assert.assertEquals("Boom", currentUser.getName().getGivenName(), user.getName().getGivenName());
+
+        } catch (GoogleJsonResponseException ex) {
+            if (ex.getStatusCode() != 409 ) {
+                throw ex;
+            }
+        }
+    }
+
+    @Test
+    public void testTestUser() throws GeneralSecurityException, IOException {
+        Directory directory = getDirectoryService();
+        User user = new User();
+        user.setName(new UserName().setFamilyName("Gasper").setGivenName("Test"))
+                .setPrimaryEmail(TEST_USER)
+                .setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+        try {
+            User currentUser = GoogleAppsUtils.testUser(directory, user);
+            Assert.assertEquals("Boom", currentUser.getName().getGivenName(), user.getName().getGivenName());
+
+        } catch (GoogleJsonResponseException ex) {
+            if (ex.getStatusCode() != 409 ) {
+                throw ex;
+            }
+        }
+    }
+
+
 }
