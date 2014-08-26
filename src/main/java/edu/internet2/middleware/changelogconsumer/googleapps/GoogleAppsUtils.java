@@ -47,6 +47,8 @@ public class GoogleAppsUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
 
+    public static String googleDomain;
+
     private final static String[] scope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
 
     private final static Random randomGenerator = new Random();
@@ -403,6 +405,19 @@ public class GoogleAppsUtils {
             } else {
                 return execute(++interval, request);
             }
+        }
+
+    }
+
+    public static String qualifyAddress(String mailbox) {
+        return qualifyAddress(mailbox, null);
+    }
+
+    public static String qualifyAddress(String mailbox, String escapeCharacter) {
+        if (escapeCharacter == null || escapeCharacter.isEmpty()) {
+            return String.format("%s@%s", mailbox, googleDomain);
+        } else {
+            return String.format("%s@%s", mailbox.replace(":", escapeCharacter), googleDomain);
         }
 
     }

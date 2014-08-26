@@ -53,7 +53,7 @@ public class GoogleAppsUtilsTest {
     GoogleCredential googleCredential = null;
 
     @BeforeClass
-    public static void setup() {
+    public static void setupClass() {
         Properties props = new Properties();
 
         InputStream is = ClassLoader.getSystemResourceAsStream("test.properties");
