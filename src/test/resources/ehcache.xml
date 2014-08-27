@@ -1,0 +1,2 @@
+<!--#The existence of this file is necessary for the GrouperLoaderConfig to initialize.-->
+<ehcache updateCheck="false" />
