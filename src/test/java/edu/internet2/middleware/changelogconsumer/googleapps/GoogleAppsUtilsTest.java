@@ -56,7 +56,7 @@ public class GoogleAppsUtilsTest {
     public static void setupClass() {
         Properties props = new Properties();
 
-        InputStream is = ClassLoader.getSystemResourceAsStream("test.properties");
+        InputStream is = ClassLoader.getSystemResourceAsStream("unit-test.properties");
         try {
             props.load(is);
             TEST_USER = props.getProperty("TEST_USER");
