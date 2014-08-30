@@ -20,7 +20,6 @@ package edu.internet2.middleware.changelogconsumer.googleapps;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import java.util.Hashtable;
 import java.util.List;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
@@ -31,6 +30,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.model.Group;
+import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.CacheManager;
 import edu.internet2.middleware.grouper.changeLog.*;
@@ -208,7 +208,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private boolean omitSyncResponses = false;
 
     /** Google Directory service*/
-    Directory directory;
+    private Directory directory;
 
     /** Global instance of the HTTP transport. */
     private static HttpTransport httpTransport;
@@ -705,7 +705,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             final Group group = GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, "-"));
             GoogleAppsUtils.removeGroup(directory, group);
         } catch (IOException e) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", Arrays.asList(name, toString(changeLogEntry), e.getMessage()));
+            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", Arrays.asList(name, toString(changeLogEntry), e.getMessage()));
         }
     }
 
@@ -741,6 +741,21 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
+
+        try {
+            //TODO: A cache check should happen first
+            Group group = GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, ":"));
+            User user = GoogleAppsUtils.retrieveUser(directory, GoogleAppsUtils.qualifyAddress(subjectId));
+
+            Member member = new Member();
+            member.setEmail(user.getPrimaryEmail());
+            //TODO: member.setRole();
+
+            GoogleAppsUtils.addGroupMember(directory, group, member);
+        } catch (IOException e) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", Arrays.asList(name,
+                    toString(changeLogEntry), e));
+        }
 /*
         List<ModifyRequest> modifyRequests =
                 consumer.processModification(consumer, changeLogEntry, ModificationMode.ADD, ReturnData.EVERYTHING);
@@ -758,6 +773,19 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     protected void processMembershipDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership delete.", name,
                 toString(changeLogEntry));
+
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
+        final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
+
+        try {
+            //TODO: A cache check should happen first
+            Group group = GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, ":"));
+            GoogleAppsUtils.removeGroupMember(directory, group, GoogleAppsUtils.qualifyAddress(subjectId));
+        } catch (IOException e) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
+                    toString(changeLogEntry), e));
+        }
+
 /*
         List<ModifyRequest> modifyRequests =
                 consumer.processModification(consumer, changeLogEntry, ModificationMode.DELETE, ReturnData.EVERYTHING);

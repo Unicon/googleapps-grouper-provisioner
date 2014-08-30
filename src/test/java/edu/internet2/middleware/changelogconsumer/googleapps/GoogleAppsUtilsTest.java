@@ -210,11 +210,10 @@ public class GoogleAppsUtilsTest {
     @Test
     public void testRemoveMember() throws GeneralSecurityException, IOException {
         Directory directory = getDirectoryService();
-        User user = GoogleAppsUtils.retrieveUser(directory, TEST_USER);
         Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
 
         try {
-            GoogleAppsUtils.removeGroupMember(directory, group, user);
+            GoogleAppsUtils.removeGroupMember(directory, group, TEST_USER);
 
         } catch (GoogleJsonResponseException ex) {
             if (ex.getStatusCode() != 409 ) {

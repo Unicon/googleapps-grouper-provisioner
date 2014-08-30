@@ -296,16 +296,16 @@ public class GoogleAppsUtils {
      * removeGroupMember removes a member of a group.
      * @param directory a Directory (service) object
      * @param group a Group object
-     * @param user a User object
+     * @param userKey an identifier for a user (e-mail address is the most popular)
      * @throws GoogleJsonResponseException
      */
-    public static void removeGroupMember(Directory directory, Group group, User user) throws IOException {
-        LOG.debug("removeGroupMember() - remove {} from {}", user, group);
+    public static void removeGroupMember(Directory directory, Group group, String userKey) throws IOException {
+        LOG.debug("removeGroupMember() - remove {} from {}", userKey, group);
 
         Directory.Members.Delete request = null;
 
         try {
-            request = directory.members().delete(group.getId(), user.getId());
+            request = directory.members().delete(group.getId(), userKey);
         } catch (IOException e) {
             e.printStackTrace();
         }

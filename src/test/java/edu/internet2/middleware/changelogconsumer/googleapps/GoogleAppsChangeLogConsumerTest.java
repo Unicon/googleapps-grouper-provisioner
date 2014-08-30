@@ -24,12 +24,18 @@ import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
+import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.model.Group;
+import com.google.api.services.admin.directory.model.Member;
+import com.google.api.services.admin.directory.model.User;
+import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.grouper.app.loader.GrouperLoaderConfig;
 import edu.internet2.middleware.grouper.changeLog.*;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
 import java.util.*;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -108,18 +114,6 @@ public class GoogleAppsChangeLogConsumerTest {
         assertTrue(group.getName().equalsIgnoreCase(grouperName));
     }
 
-    @Test
-    public void testProcessGroupDelete() throws GeneralSecurityException, IOException {
-        ChangeLogEntry deleteEntry = mock(ChangeLogEntry.class);
-        when(deleteEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "deleteGroup", ""));
-        when(deleteEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name)).thenReturn(grouperName);
-        when(deleteEntry.getContextId()).thenReturn("123456789");
-
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
-
-        consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        assertTrue(GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(grouperName, "-")) == null);
-    }
 
     @Test
     public void testProcessGroupUpdate() throws GeneralSecurityException, IOException {
@@ -130,11 +124,39 @@ public class GoogleAppsChangeLogConsumerTest {
         //TODO: Privilege Change
     }
 
+
+
     @Test
     public void testProcessGroupMemberAdd() throws GeneralSecurityException, IOException {
-        fail("Not Implemented");
-        //TODO: Member already exists
-        //TODO: Member doesn't exists yet
+
+        //User already exists
+        User user = new User();
+        user.setPrimaryEmail(GoogleAppsUtils.qualifyAddress(subjectId));
+        user.setName(new UserName());
+        user.getName().setFamilyName("testfm");
+        user.getName().setGivenName("testgn");
+        user.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+
+        GoogleAppsUtils.addUser(consumer.getDirectory(), user);
+        ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
+        when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "addMember", ""));
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(GoogleAppsUtils.qualifyAddress(grouperName, "-"));
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(subjectId);
+        when(addEntry.getContextId()).thenReturn("123456789");
+
+        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+
+        consumer.processChangeLogEntries(changeLogEntryList, metadata);
+        Group group = GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(grouperName, "-"));
+        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), group);
+        assertNotNull(members);
+        assertTrue(members.size() == 1);
+        assertTrue(members.get(0).getEmail().equalsIgnoreCase(GoogleAppsUtils.qualifyAddress(subjectId)));
+
+        //TODO: Remove User
+
+        //TODO: user doesn't already exists; consumer needs to add
+
     }
 
     @Test
@@ -188,5 +210,16 @@ public class GoogleAppsChangeLogConsumerTest {
         fail("Not Implemented");
     }
 
+    @Test
+    public void testProcessGroupDelete() throws GeneralSecurityException, IOException {
+        ChangeLogEntry deleteEntry = mock(ChangeLogEntry.class);
+        when(deleteEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "deleteGroup", ""));
+        when(deleteEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name)).thenReturn(grouperName);
+        when(deleteEntry.getContextId()).thenReturn("123456789");
 
+        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
+
+        consumer.processChangeLogEntries(changeLogEntryList, metadata);
+        assertTrue(GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(grouperName, "-")) == null);
+    }
 }
