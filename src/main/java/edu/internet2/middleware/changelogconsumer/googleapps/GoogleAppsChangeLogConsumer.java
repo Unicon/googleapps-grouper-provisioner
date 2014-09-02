@@ -167,7 +167,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param changeLogEntry the change log entry
      * @return the simple string representation of the change log entry
      */
-    public static String toString(ChangeLogEntry changeLogEntry) {
+    private static String toString(ChangeLogEntry changeLogEntry) {
         ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
         toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
         toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
@@ -183,7 +183,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param changeLogEntry the change log entry
      * @return the deep string representation of the change log entry
      */
-    public static String toStringDeep(ChangeLogEntry changeLogEntry) {
+    private static String toStringDeep(ChangeLogEntry changeLogEntry) {
         ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
         toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
         toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
@@ -748,13 +748,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
 
         try {
-            Group group;
-            group = CacheManager.googleGroups().get(GoogleAppsUtils.qualifyAddress(groupName, "-"));
-            group = group != null ? group : GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, "-"));
-
-            User user;
-            user = CacheManager.googleUsers().get(GoogleAppsUtils.qualifyAddress(subjectId));
-            user = user != null ? user : GoogleAppsUtils.retrieveUser(directory, GoogleAppsUtils.qualifyAddress(subjectId));
+            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupName, "-"));
+            User user = fetchUser(GoogleAppsUtils.qualifyAddress(subjectId));
 
             if (user == null) {
                 Subject subject = SubjectFinder.findByIdAndSource(subjectId, sourceId, true);
@@ -804,8 +799,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
 
         try {
-            //TODO: A cache check should happen first
-            Group group = GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, ":"));
+            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupName, "-"));
             GoogleAppsUtils.removeGroupMember(directory, group, GoogleAppsUtils.qualifyAddress(subjectId));
         } catch (IOException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
@@ -1127,5 +1121,15 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 LOG.error("Google Apps Consumer '{}' - Something bad happened when populating the UserCache: {}", name, e);
             }
         }
+    }
+
+    private Group fetchGroup(String groupKey) throws IOException {
+        Group group = CacheManager.googleGroups().get(groupKey);
+        return group != null ? group : GoogleAppsUtils.retrieveGroup(directory, groupKey);
+    }
+
+    private User fetchUser(String userKey) throws IOException {
+        User user = CacheManager.googleUsers().get(userKey);
+        return user != null ? user : GoogleAppsUtils.retrieveUser(directory, userKey);
     }
 }
