@@ -100,6 +100,27 @@ public class GoogleAppsUtils {
     }
 
     /**
+     * removeGroup removes a group from Google.
+     * @param directory a Directory (service) object
+     * @param userKey an identifier for a user (e-mail address is the most popular)
+     * @throws IOException
+     */
+    public static void removeUser(Directory directory, String userKey) throws IOException {
+        LOG.debug("removeUser() - {}", userKey);
+
+        Directory.Users.Delete request = null;
+
+        try {
+            request = directory.users().delete(userKey);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        execute(request);
+    }
+
+
+    /**
      * addGroup adds a group to Google.
      * @param directory a Directory (service) object
      * @param group a populated Group object
@@ -123,16 +144,16 @@ public class GoogleAppsUtils {
     /**
      * removeGroup removes a group from Google.
      * @param directory a Directory (service) object
-     * @param group a group object to remove from Google.
+     * @param groupKey
      * @throws IOException
      */
-    public static void removeGroup(Directory directory, Group group) throws IOException {
-        LOG.debug("removeGroup() - {}", group);
+    public static void removeGroup(Directory directory, String groupKey) throws IOException {
+        LOG.debug("removeGroup() - {}", groupKey);
 
         Directory.Groups.Delete request = null;
 
         try {
-            request = directory.groups().delete(group.getId());
+            request = directory.groups().delete(groupKey);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -260,10 +281,14 @@ public class GoogleAppsUtils {
         }
 
         do { //continue until we have all the pages read in.
-            Members currentPage = (Members)execute(request);
+            try {
+                Members currentPage = (Members) execute(request);
 
-            members.addAll(currentPage.getMembers());
-            request.setPageToken(currentPage.getNextPageToken());
+                members.addAll(currentPage.getMembers());
+                request.setPageToken(currentPage.getNextPageToken());
+            } catch (NullPointerException ex) {
+
+            }
 
         } while (request.getPageToken() != null && request.getPageToken().length() > 0);
 

@@ -37,6 +37,9 @@ import java.security.SecureRandom;
 import java.util.List;
 import java.util.Properties;
 
+/**
+ * These tests are intended to be run sequentially. At some point they maybe set up to run independently.
+ */
 public class GoogleAppsUtilsTest {
     private static String TEST_USER;
     private static String TEST_GROUP;
@@ -113,9 +116,7 @@ public class GoogleAppsUtilsTest {
             Assert.assertEquals("Boom", currentUser.getName().getGivenName(), user.getName().getGivenName());
 
         } catch (GoogleJsonResponseException ex) {
-            if (ex.getStatusCode() != 409 ) {
-                throw ex;
-            }
+            throw ex;
         }
     }
 
@@ -131,9 +132,7 @@ public class GoogleAppsUtilsTest {
             Assert.assertEquals("Boom", currentGroup.getName(), group.getName());
 
         } catch (GoogleJsonResponseException ex) {
-            if (ex.getStatusCode() != 409 ) {
-                throw ex;
-            }
+            throw ex;
         }
     }
 
@@ -193,9 +192,7 @@ public class GoogleAppsUtilsTest {
             Assert.assertEquals("Boom", currentMember.getEmail(), member.getEmail());
 
         } catch (GoogleJsonResponseException ex) {
-            if (ex.getStatusCode() != 409 ) {
-                throw ex;
-            }
+            throw ex;
         }
     }
 
@@ -216,9 +213,7 @@ public class GoogleAppsUtilsTest {
             GoogleAppsUtils.removeGroupMember(directory, group, TEST_USER);
 
         } catch (GoogleJsonResponseException ex) {
-            if (ex.getStatusCode() != 409 ) {
-                throw ex;
-            }
+            throw ex;
         }
     }
 
@@ -226,16 +221,23 @@ public class GoogleAppsUtilsTest {
     public void testRemoveGroup() throws GeneralSecurityException, IOException {
         Directory directory = getDirectoryService();
 
-        Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
-
         try {
-            GoogleAppsUtils.removeGroup(directory, group);
+            GoogleAppsUtils.removeGroup(directory, TEST_GROUP);
 
         } catch (GoogleJsonResponseException ex) {
-            if (ex.getStatusCode() != 409 ) {
-                throw ex;
-            }
+            throw ex;
         }
     }
 
+    @Test
+    public void testRemoveUser() throws GeneralSecurityException, IOException {
+        Directory directory = getDirectoryService();
+
+        try {
+            GoogleAppsUtils.removeUser(directory, TEST_USER);
+
+        } catch (GoogleJsonResponseException ex) {
+            throw ex;
+        }
+    }
 }

@@ -18,7 +18,9 @@
 package edu.internet2.middleware.changelogconsumer.googleapps;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,8 +34,11 @@ import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.model.Group;
 import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
+import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.CacheManager;
+import edu.internet2.middleware.grouper.SubjectFinder;
 import edu.internet2.middleware.grouper.changeLog.*;
+import edu.internet2.middleware.subject.Subject;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 import org.apache.commons.lang.time.StopWatch;
@@ -702,8 +707,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name);
 
         try {
-            final Group group = GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, "-"));
-            GoogleAppsUtils.removeGroup(directory, group);
+            GoogleAppsUtils.removeGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, "-"));
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", Arrays.asList(name, toString(changeLogEntry), e.getMessage()));
         }
@@ -741,15 +745,37 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
+        final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
 
         try {
-            //TODO: A cache check should happen first
-            Group group = GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, ":"));
-            User user = GoogleAppsUtils.retrieveUser(directory, GoogleAppsUtils.qualifyAddress(subjectId));
+            Group group;
+            group = CacheManager.googleGroups().get(GoogleAppsUtils.qualifyAddress(groupName, "-"));
+            group = group != null ? group : GoogleAppsUtils.retrieveGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, "-"));
+
+            User user;
+            user = CacheManager.googleUsers().get(GoogleAppsUtils.qualifyAddress(subjectId));
+            user = user != null ? user : GoogleAppsUtils.retrieveUser(directory, GoogleAppsUtils.qualifyAddress(subjectId));
+
+            if (user == null) {
+                Subject subject = SubjectFinder.findByIdAndSource(subjectId, sourceId, true);
+                User newUser = new User();
+                newUser.setName(new UserName());
+                //TODO: Parameterize the attributes
+                newUser.setPrimaryEmail(subject.getAttributeValue("mail"));
+                newUser.getName().setGivenName(subject.getAttributeValue("givenName"));
+                newUser.getName().setFamilyName(subject.getAttributeValue("sn"));
+                newUser.getName().setFullName(subject.getAttributeValue("displayName"));
+                newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+
+                newUser = GoogleAppsUtils.addUser(directory, newUser);
+                CacheManager.googleUsers().put(newUser.getPrimaryEmail(), newUser);
+                user = newUser;
+            }
 
             Member member = new Member();
             member.setEmail(user.getPrimaryEmail());
-            //TODO: member.setRole();
+            member.setRole("MEMBER");
+            //TODO: find Role();
 
             GoogleAppsUtils.addGroupMember(directory, group, member);
         } catch (IOException e) {
@@ -785,13 +811,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
                     toString(changeLogEntry), e));
         }
-
-/*
-        List<ModifyRequest> modifyRequests =
-                consumer.processModification(consumer, changeLogEntry, ModificationMode.DELETE, ReturnData.EVERYTHING);
-
-        executeModifyRequests(consumer, changeLogEntry, modifyRequests);
-        */
     }
 
     /**
