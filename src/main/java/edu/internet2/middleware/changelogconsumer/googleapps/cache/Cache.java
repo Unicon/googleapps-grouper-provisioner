@@ -41,22 +41,32 @@ public class Cache<T> {
         cache.clear();
     }
 
-    public void put(String id, T item) {
-        cache.put(id, item);
+    public void put(T item) {
+        cache.put(getId(item), item);
+    }
+
+    public void remove (String id) {
+        if (cache.containsKey(id)) {
+            cache.remove(id);
+        }
     }
 
     public void seed(List<T> items) {
         cache = new Hashtable<String, T>(items.size() + 100);
 
         for (T item : items) {
-            if (item.getClass().equals(User.class)) {
-                cache.put(((User) item).getPrimaryEmail(), item);
-            } else if (item.getClass().equals(Group.class)) {
-                cache.put(((Group) item).getEmail(), item);
-            }
+            cache.put(getId(item), item);
         }
 
         cachePopulatedTime = new DateTime();
+    }
+
+    private String getId(T item) {
+        if (item.getClass().equals(User.class)) {
+            return ((User) item).getPrimaryEmail();
+        } else { //if (item.getClass().equals(Group.class))
+            return ((Group) item).getEmail();
+        }
     }
 
     public void setCacheValidity(int minutes){

@@ -162,6 +162,27 @@ public class GoogleAppsUtils {
     }
 
     /**
+     * addGroup adds a group to Google.
+     * @param directory a Directory (service) object
+     * @param group a populated Group object
+     * @return the new Group object created/returned by Google
+     * @throws IOException
+     */
+    public static Group updateGroup(Directory directory, String groupKey, Group group) throws IOException {
+        LOG.debug("updateGroup() - {}", group);
+
+        Directory.Groups.Update request = null;
+
+        try {
+            request = directory.groups().update(groupKey, group);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        return (Group) execute(request);
+    }
+
+    /**
      * retrieveAllUsers returns all of the users from Google.
      * @param directory a Directory (service) object
      * @return a list of all the users in the directory
@@ -264,18 +285,18 @@ public class GoogleAppsUtils {
     /**
      * retrieveGroupMembers returns a list of members of a group.
      * @param directory a Directory (service) object
-     * @param group a group object
+     * @param groupKey an identifier for a group (e-mail address is the most popular)
      * @return a list of Members in the Group
      * @throws IOException
      */
-    public static List<Member> retrieveGroupMembers(Directory directory, Group group) throws IOException {
-        LOG.debug("retrieveGroupMembers() - {}", group);
+    public static List<Member> retrieveGroupMembers(Directory directory, String groupKey) throws IOException {
+        LOG.debug("retrieveGroupMembers() - {}", groupKey);
 
         List<Member> members = new ArrayList<Member>();
 
         Directory.Members.List request = null;
         try {
-            request = directory.members().list(group.getId());
+            request = directory.members().list(groupKey);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -320,17 +341,17 @@ public class GoogleAppsUtils {
     /**
      * removeGroupMember removes a member of a group.
      * @param directory a Directory (service) object
-     * @param group a Group object
-     * @param userKey an identifier for a user (e-mail address is the most popular)
+     * @param groupKey an identifier for a user (e-mail address is the most popular)
+     * @param memberKey an identifier for a user (e-mail address is the most popular)
      * @throws GoogleJsonResponseException
      */
-    public static void removeGroupMember(Directory directory, Group group, String userKey) throws IOException {
-        LOG.debug("removeGroupMember() - remove {} from {}", userKey, group);
+    public static void removeGroupMember(Directory directory, String groupKey, String memberKey) throws IOException {
+        LOG.debug("removeGroupMember() - remove {} from {}", memberKey, groupKey);
 
         Directory.Members.Delete request = null;
 
         try {
-            request = directory.members().delete(group.getId(), userKey);
+            request = directory.members().delete(groupKey, memberKey);
         } catch (IOException e) {
             e.printStackTrace();
         }

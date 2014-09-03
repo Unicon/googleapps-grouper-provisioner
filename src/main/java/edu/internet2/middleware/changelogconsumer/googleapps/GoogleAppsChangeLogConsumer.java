@@ -606,69 +606,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Delete an object. The object identifiers to be deleted are calculated from the change log entry. For every object
-     * to be deleted, a lookup is performed on the object identifier to determine if the object exists. If the object
-     * exists, it is deleted.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     */
-    protected void processDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
-/*
-        // calculate the psoID to be deleted from the change log entry
-        CalcRequest calcRequest = new CalcRequest();
-        calcRequest.setReturnData(ReturnData.IDENTIFIER);
-        calcRequest.setRequestID(PSPUtil.uniqueRequestId());
-
-        CalcResponse calcResponse = consumer.getPsp().execute(calcRequest);
-
-        if (!calcResponse.getStatus().equals(StatusCode.SUCCESS)) {
-            LOG.error("Google Apps Consumer '{}' - Calc request '{}' failed {}", new Object[] {name, calcRequest.toString(),
-                    PSPUtil.toString(calcResponse),});
-            throw new PspException(PSPUtil.toString(calcResponse));
-        }
-
-        List<PSO> psos = calcResponse.getPSOs();
-
-        if (psos.isEmpty()) {
-            LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Unable to calculate identifier.", name,
-                    toString(changeLogEntry));
-            return;
-        }
-
-        for (PSO pso : psos) {
-            // lookup object to see if it exists
-            LookupRequest lookupRequest = new LookupRequest();
-            lookupRequest.setPsoID(pso.getPsoID());
-            lookupRequest.setRequestID(PSPUtil.uniqueRequestId());
-            lookupRequest.setReturnData(ReturnData.IDENTIFIER);
-            LookupResponse lookupResponse = consumer.getPsp().execute(lookupRequest);
-
-            if (!lookupResponse.getStatus().equals(StatusCode.SUCCESS)) {
-                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Identifier '{}' does not exist.", new Object[] {
-                        name, toString(changeLogEntry), PSPUtil.toString(pso.getPsoID()),});
-                continue;
-            }
-
-            DeleteRequest deleteRequest = new DeleteRequest();
-            deleteRequest.setPsoID(pso.getPsoID());
-            deleteRequest.setRequestID(PSPUtil.uniqueRequestId());
-
-            DeleteResponse deleteResponse = consumer.getPsp().execute(deleteRequest);
-
-            if (deleteResponse.getStatus().equals(StatusCode.SUCCESS)) {
-                LOG.info("Google Apps Consumer '{}' - Change log entry '{}' Delete '{}'", new Object[] {name,
-                        toString(changeLogEntry), PSPUtil.toString(deleteResponse),});
-            } else {
-                LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Delete failed '{}'", new Object[] {name,
-                        toString(changeLogEntry), PSPUtil.toString(deleteResponse),});
-                throw new PspException(PSPUtil.toString(deleteResponse));
-            }
-        }
-        */
-    }
-
-    /**
      * Add a group.
      *
      * @param consumer the change log consumer
@@ -688,7 +625,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         group.setDescription(description);
 
         try {
-            GoogleAppsUtils.addGroup(directory, group);
+            CacheManager.googleGroups().put(GoogleAppsUtils.addGroup(directory, group));
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
         }
@@ -707,7 +644,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name);
 
         try {
-            GoogleAppsUtils.removeGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, "-"));
+            String groupKey = GoogleAppsUtils.qualifyAddress(groupName, "-");
+            CacheManager.googleGroups().remove(groupKey);
+            GoogleAppsUtils.removeGroup(directory, groupKey);
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", Arrays.asList(name, toString(changeLogEntry), e.getMessage()));
         }
@@ -723,13 +662,28 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group update.", name, toString(changeLogEntry));
 
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.name);
         final String propertyChanged = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyChanged);
+        final String propertyOldValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue);
+        final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue);
 
-        if (propertyChanged.equalsIgnoreCase("description")) {
+        try {
+            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupName, "-"));
 
+            if (propertyChanged.equalsIgnoreCase("name")) {
+                group.setName(propertyNewValue);
+
+            } else if (propertyChanged.equalsIgnoreCase("description")) {
+                group.setDescription(propertyNewValue);
+            } else {
+                LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Unmapped group property update.",
+                        Arrays.asList(name, toString(changeLogEntry)), propertyChanged);
+            }
+
+            CacheManager.googleGroups().put(GoogleAppsUtils.updateGroup(directory, groupName, group));
+        } catch (IOException e) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing group update.", name, toString(changeLogEntry));
         }
-
-        //processUpdate(consumer, changeLogEntry, ChangeLogLabels.GROUP_UPDATE.name);
     }
 
     /**
@@ -763,7 +717,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
 
                 newUser = GoogleAppsUtils.addUser(directory, newUser);
-                CacheManager.googleUsers().put(newUser.getPrimaryEmail(), newUser);
+                CacheManager.googleUsers().put(newUser);
                 user = newUser;
             }
 
@@ -795,12 +749,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership delete.", name,
                 toString(changeLogEntry));
 
-        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupName);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
 
         try {
             Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupName, "-"));
-            GoogleAppsUtils.removeGroupMember(directory, group, GoogleAppsUtils.qualifyAddress(subjectId));
+            GoogleAppsUtils.removeGroupMember(directory, group.getEmail(), GoogleAppsUtils.qualifyAddress(subjectId));
         } catch (IOException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
                     toString(changeLogEntry), e));
@@ -1046,7 +1000,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem delete.", name, toString(changeLogEntry));
 
-        processDelete(consumer, changeLogEntry);
+
     }
 
     /**
