@@ -456,14 +456,14 @@ public class GoogleAppsUtils {
     }
 
     public static String qualifyAddress(String mailbox) {
-        return qualifyAddress(mailbox, null);
+        return qualifyAddress(mailbox, false);
     }
 
-    public static String qualifyAddress(String mailbox, String escapeCharacter) {
-        if (escapeCharacter == null || escapeCharacter.isEmpty()) {
+    public static String qualifyAddress(String mailbox, boolean escapeCharacter) {
+        if (escapeCharacter == true) {
             return String.format("%s@%s", mailbox, googleDomain);
         } else {
-            return String.format("%s@%s", mailbox.replace(":", escapeCharacter), googleDomain);
+            return String.format("%s@%s", mailbox.replace(" ", ""), googleDomain);
         }
 
     }

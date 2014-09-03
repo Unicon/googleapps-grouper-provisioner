@@ -51,7 +51,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 @PrepareForTest(value = { GrouperLoaderConfig.class, GrouperLoaderConfig.class, Subject.class, SubjectFinder.class})
 public class GoogleAppsChangeLogConsumerTest {
 
-    private static final String groupName = "edu:internet2:grouper:provisioned:testGroup";
+    private static final String groupId = "testGroup";
 
     private static final String subjectId = "testSubjectId";
 
@@ -107,13 +107,13 @@ public class GoogleAppsChangeLogConsumerTest {
     @After
     public void teardown() throws GeneralSecurityException, IOException {
         try {
-            GoogleAppsUtils.removeGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, "-"));
+            GoogleAppsUtils.removeGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true));
         } catch (IOException e) {
 
         }
 
         try {
-            GoogleAppsUtils.removeUser(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(subjectId));
+            GoogleAppsUtils.removeUser(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(subjectId, true));
         } catch (IOException e) {
 
         }
@@ -126,15 +126,16 @@ public class GoogleAppsChangeLogConsumerTest {
     public void testProcessGroupAdd() throws GeneralSecurityException, IOException {
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "addGroup", ""));
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name)).thenReturn(groupName);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name)).thenReturn(groupId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
         ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        Group group = GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, "-"));
+        Group group = GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true));
         assertNotNull(group);
-        assertTrue(group.getName().equalsIgnoreCase(groupName));
+        assertTrue(group.getName().equalsIgnoreCase(groupId));
     }
 
 
@@ -142,8 +143,9 @@ public class GoogleAppsChangeLogConsumerTest {
     public void testProcessGroupUpdate() throws GeneralSecurityException, IOException {
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "updateGroup", ""));
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.name)).thenReturn(groupName);
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue)).thenReturn(groupName);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.id)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.name)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue)).thenReturn(groupId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue)).thenReturn("test");
         when(addEntry.getContextId()).thenReturn("123456789");
 
@@ -157,12 +159,13 @@ public class GoogleAppsChangeLogConsumerTest {
     @Test
     public void testProcessGroupMemberAddExisting() throws GeneralSecurityException, IOException {
         //User already exists in Google
-        createTestGroup(groupName);
+        createTestGroup(groupId);
         createTestUser(GoogleAppsUtils.qualifyAddress(subjectId), "testgn", "testfm");
 
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "addMembership", ""));
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupName);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(subjectId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
@@ -170,7 +173,7 @@ public class GoogleAppsChangeLogConsumerTest {
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, "-"));
+        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true));
         assertNotNull(members);
         assertTrue(members.size() == 1);
         assertTrue(members.get(0).getEmail().equalsIgnoreCase(GoogleAppsUtils.qualifyAddress(subjectId)));
@@ -179,7 +182,7 @@ public class GoogleAppsChangeLogConsumerTest {
     @Test
     public void testProcessGroupMemberAddNew() throws GeneralSecurityException, IOException {
         //User doesn't exists in Google
-        createTestGroup(groupName);
+        createTestGroup(groupId);
 
         Subject subject = mock(Subject.class);
         when(subject.getAttributeValue("givenName")).thenReturn("testgn2");
@@ -192,7 +195,8 @@ public class GoogleAppsChangeLogConsumerTest {
 
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "addMembership", ""));
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupName);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(subjectId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
         when(addEntry.getContextId()).thenReturn("123456789");
@@ -201,7 +205,7 @@ public class GoogleAppsChangeLogConsumerTest {
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, "-"));
+        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true));
         assertNotNull(members);
         assertTrue(members.size() == 1);
         assertTrue(members.get(0).getEmail().equalsIgnoreCase(GoogleAppsUtils.qualifyAddress(subjectId)));
@@ -210,7 +214,7 @@ public class GoogleAppsChangeLogConsumerTest {
     @Test
     public void testProcessGroupMemberRemove() throws GeneralSecurityException, IOException {
         //User already exists in Google
-        Group group = createTestGroup(groupName);
+        Group group = createTestGroup(groupId);
         createTestUser(GoogleAppsUtils.qualifyAddress(subjectId), "testgn3", "testfm3");
 
         Member member = new Member()
@@ -220,7 +224,8 @@ public class GoogleAppsChangeLogConsumerTest {
 
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "deleteMembership", ""));
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupName)).thenReturn(groupName);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupId)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupName)).thenReturn(groupId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId)).thenReturn(subjectId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
@@ -228,7 +233,7 @@ public class GoogleAppsChangeLogConsumerTest {
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, "-"));
+        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true));
         assertNotNull(members);
         assertTrue(members.size() == 0);
     }
@@ -281,23 +286,23 @@ public class GoogleAppsChangeLogConsumerTest {
 
     @Test
     public void testProcessGroupDelete() throws GeneralSecurityException, IOException {
-        createTestGroup(groupName);
+        createTestGroup(groupId);
 
         ChangeLogEntry deleteEntry = mock(ChangeLogEntry.class);
         when(deleteEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "deleteGroup", ""));
-        when(deleteEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name)).thenReturn(groupName);
+        when(deleteEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id)).thenReturn(groupId);
         when(deleteEntry.getContextId()).thenReturn("123456789");
 
         ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        assertTrue(GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, "-")) == null);
+        assertTrue(GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true)) == null);
     }
 
     private Group createTestGroup(String groupName) throws IOException {
         Group group = new Group();
         group.setName(groupName);
-        group.setEmail(GoogleAppsUtils.qualifyAddress(groupName, "-"));
+        group.setEmail(GoogleAppsUtils.qualifyAddress(groupName, true));
         return GoogleAppsUtils.addGroup(consumer.getDirectory(), group);
     }
 

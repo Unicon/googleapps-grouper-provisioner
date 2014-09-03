@@ -616,12 +616,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group add.", name, toString(changeLogEntry));
 
         final Group group = new Group();
+        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id);
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name);
         final String description = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.description);
         final String displayName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.displayName);
 
         group.setName(groupName);
-        group.setEmail(GoogleAppsUtils.qualifyAddress(groupName, "-"));
+        group.setEmail(GoogleAppsUtils.qualifyAddress(groupId, true));
         group.setDescription(description);
 
         try {
@@ -641,10 +642,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         //TODO: to archive or not to archive... that is the question!
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", name, toString(changeLogEntry));
 
-        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name);
+        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id);
 
         try {
-            String groupKey = GoogleAppsUtils.qualifyAddress(groupName, "-");
+            String groupKey = GoogleAppsUtils.qualifyAddress(groupId, true);
             CacheManager.googleGroups().remove(groupKey);
             GoogleAppsUtils.removeGroup(directory, groupKey);
         } catch (IOException e) {
@@ -662,13 +663,14 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group update.", name, toString(changeLogEntry));
 
+        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.id);
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.name);
         final String propertyChanged = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyChanged);
         final String propertyOldValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue);
         final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue);
 
         try {
-            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupName, "-"));
+            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
 
             if (propertyChanged.equalsIgnoreCase("name")) {
                 group.setName(propertyNewValue);
@@ -697,12 +699,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", name,
                 toString(changeLogEntry));
 
-        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
+        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
 
         try {
-            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupName, "-"));
+            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
             User user = fetchUser(GoogleAppsUtils.qualifyAddress(subjectId));
 
             if (user == null) {
@@ -749,11 +751,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership delete.", name,
                 toString(changeLogEntry));
 
-        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupName);
+        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupId);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
 
         try {
-            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupName, "-"));
+            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
             GoogleAppsUtils.removeGroupMember(directory, group.getEmail(), GoogleAppsUtils.qualifyAddress(subjectId));
         } catch (IOException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
