@@ -22,7 +22,9 @@ import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -36,13 +38,16 @@ import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.CacheManager;
+import edu.internet2.middleware.grouper.GroupFinder;
+import edu.internet2.middleware.grouper.GrouperSession;
 import edu.internet2.middleware.grouper.SubjectFinder;
 import edu.internet2.middleware.grouper.changeLog.*;
 import edu.internet2.middleware.subject.Subject;
+import edu.internet2.middleware.subject.SubjectType;
+import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 import org.apache.commons.lang.time.StopWatch;
-import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -398,11 +403,20 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             //TODO: make the cache settings properties
             CacheManager.googleUsers().setCacheValidity(15);
-            populateUserCache(directory);
+            populateGooUsersCache(directory);
 
             CacheManager.googleGroups().setCacheValidity(15);
-            populateGroupCache(directory);
+            populateGooGroupsCache(directory);
+
+            CacheManager.grouperSubjects().setCacheValidity(15);
+            CacheManager.grouperSubjects().seed(CacheManager.googleUsers().size());
+
+            CacheManager.grouperGroups().setCacheValidity(15);
+            CacheManager.grouperGroups().seed(CacheManager.googleGroups().size());
+
+//            GrouperSession.startRootSession();
         }
+
             // retry on error
             retryOnError = GrouperLoaderConfig.getPropertyBoolean("changeLog.consumer.psp.retryOnError", false);
             LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
@@ -435,15 +449,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
 
     protected void processAttributeAssignValueAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
-/*
+
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", name,
                 toString(changeLogEntry));
 
-        List<ModifyRequest> modifyRequests =
-                consumer.processModification(consumer, changeLogEntry, ModificationMode.ADD, ReturnData.DATA);
-
-        executeModifyRequests(consumer, changeLogEntry, modifyRequests);
-        */
     }
 
     /**
@@ -470,8 +479,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                                         ChangeLogProcessorMetadata changeLogProcessorMetadata) {
 
         //let's populate the caches, if necessary
-        populateUserCache(getDirectory());
-        populateGroupCache(getDirectory());
+        populateGooUsersCache(getDirectory());
+        populateGooGroupsCache(getDirectory());
 
         // the change log sequence number to return
         long sequenceNumber = -1;
@@ -569,7 +578,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @throws Exception if an error occurs processing the change log entry
      */
     protected void processChangeLogEntry(ChangeLogEntry changeLogEntry) throws Exception {
-
         try {
             // find the method to run via the enum
             String enumKey =
@@ -593,11 +601,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 LOG.info("Google Apps Consumer '{}' - Change log entry '{}' Finished processing. Elapsed time {}",
                         new Object[] {name, toString(changeLogEntry), stopWatch,});
 
-                if (LOG.isDebugEnabled()) {
-                    //for (String stats : PspCLI.getAllCacheStats()) {
-                    //    LOG.debug(stats);
-                    //}
-                }
             }
         } catch (IllegalArgumentException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Unsupported category and action.", name,
@@ -614,6 +617,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     protected void processGroupAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group add.", name, toString(changeLogEntry));
+
+        //TODO: Determine if Group qualifies to be sync'ed
 
         final Group group = new Group();
         final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id);
@@ -639,8 +644,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param changeLogEntry the change log entry
      */
     protected void processGroupDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
-        //TODO: to archive or not to archive... that is the question!
+
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", name, toString(changeLogEntry));
+
+        //TODO: to archive or not to archive... that is the question!
 
         final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id);
 
@@ -670,7 +677,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue);
 
         try {
-            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
+            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
 
             if (propertyChanged.equalsIgnoreCase("name")) {
                 group.setName(propertyNewValue);
@@ -678,7 +685,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             } else if (propertyChanged.equalsIgnoreCase("description")) {
                 group.setDescription(propertyNewValue);
             } else {
-                LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Unmapped group property update.",
+                LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Unmapped group property updated {}.",
                         Arrays.asList(name, toString(changeLogEntry)), propertyChanged);
             }
 
@@ -695,50 +702,61 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param changeLogEntry the change log entry
      */
     protected void processMembershipAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+        final String ROLE = "MEMBER"; //Other types are ADMIN and OWNER. Neither makes sense for managed groups.
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", name,
                 toString(changeLogEntry));
 
+        //TODO: to archive or not to archive... that is the question!
+
+        Set<edu.internet2.middleware.grouper.Member> members = new HashSet<edu.internet2.middleware.grouper.Member>();
+
         final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId);
+
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
 
+        Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
+
+        SubjectType subjectType = lookupSubject.getType();
         try {
-            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
-            User user = fetchUser(GoogleAppsUtils.qualifyAddress(subjectId));
+            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
 
-            if (user == null) {
-                Subject subject = SubjectFinder.findByIdAndSource(subjectId, sourceId, true);
-                User newUser = new User();
-                newUser.setName(new UserName());
-                //TODO: Parameterize the attributes
-                newUser.setPrimaryEmail(subject.getAttributeValue("mail"));
-                newUser.getName().setGivenName(subject.getAttributeValue("givenName"));
-                newUser.getName().setFamilyName(subject.getAttributeValue("sn"));
-                newUser.getName().setFullName(subject.getAttributeValue("displayName"));
-                newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+            User user;
+            if (subjectType == SubjectTypeEnum.PERSON) {
+                user = fetchGooUser(GoogleAppsUtils.qualifyAddress(subjectId));
+                if (user == null) {
+                    user = createUser(lookupSubject);
+                }
 
-                newUser = GoogleAppsUtils.addUser(directory, newUser);
-                CacheManager.googleUsers().put(newUser);
-                user = newUser;
+                createMember(group, user, ROLE);
+
+            } else if (subjectType == SubjectTypeEnum.GROUP) {
+                edu.internet2.middleware.grouper.Group nestedGroup = fetchGrouperGroup(subjectId);
+                members = nestedGroup.getEffectiveMembers();
+
+                for (edu.internet2.middleware.grouper.Member member : members) {
+                    user = fetchGooUser(GoogleAppsUtils.qualifyAddress(member.getSubjectId()));
+
+                    if (user == null) {
+                        Subject subject = fetchGrouperSubject(member.getSubjectSourceId(), member.getSubjectId());
+                        if (subject == null) {
+                            user = createUser(subject);
+                        }
+                    }
+
+                    createMember(group, user, "MEMBER");
+                }
+            } else {
+                LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add, subjectType not mapped.",
+                        Arrays.asList(name, toString(changeLogEntry)), subjectType.getName());
             }
 
-            Member member = new Member();
-            member.setEmail(user.getPrimaryEmail());
-            member.setRole("MEMBER");
-            //TODO: find Role();
-
-            GoogleAppsUtils.addGroupMember(directory, group, member);
         } catch (IOException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", Arrays.asList(name,
                     toString(changeLogEntry), e));
         }
-/*
-        List<ModifyRequest> modifyRequests =
-                consumer.processModification(consumer, changeLogEntry, ModificationMode.ADD, ReturnData.EVERYTHING);
 
-        executeModifyRequests(consumer, changeLogEntry, modifyRequests);
-*/
     }
 
     /**
@@ -755,7 +773,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
 
         try {
-            Group group = fetchGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
+            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
             GoogleAppsUtils.removeGroupMember(directory, group.getEmail(), GoogleAppsUtils.qualifyAddress(subjectId));
         } catch (IOException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
@@ -1047,7 +1065,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         this.retryOnError = retryOnError;
     }
 
-    private void populateUserCache(Directory directory) {
+    private void populateGooUsersCache(Directory directory) {
         LOG.debug("Google Apps Consumer '{}' - Populating the userCache.", name);
 
         if (CacheManager.googleUsers() == null || CacheManager.googleUsers().isExpired()) {
@@ -1063,7 +1081,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
     }
 
-    private void populateGroupCache(Directory directory) {
+    private void populateGooGroupsCache(Directory directory) {
         LOG.debug("Google Apps Consumer '{}' - Populating the userCache.", name);
 
         if (CacheManager.googleGroups() == null || CacheManager.googleGroups().isExpired()) {
@@ -1079,13 +1097,79 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
     }
 
-    private Group fetchGroup(String groupKey) throws IOException {
+
+    private Group fetchGooGroup(String groupKey) throws IOException {
         Group group = CacheManager.googleGroups().get(groupKey);
-        return group != null ? group : GoogleAppsUtils.retrieveGroup(directory, groupKey);
+        if (group == null) {
+            group = GoogleAppsUtils.retrieveGroup(directory, groupKey);
+
+            if (group != null) {
+                CacheManager.googleGroups().put(group);
+            }
+        }
+
+        return group;
     }
 
-    private User fetchUser(String userKey) throws IOException {
+    private User fetchGooUser(String userKey) throws IOException {
         User user = CacheManager.googleUsers().get(userKey);
-        return user != null ? user : GoogleAppsUtils.retrieveUser(directory, userKey);
+        if (user == null) {
+            user = GoogleAppsUtils.retrieveUser(directory, userKey);
+
+            if (user != null) {
+                CacheManager.googleUsers().put(user);
+            }
+        }
+
+        return user;
+    }
+
+    private edu.internet2.middleware.grouper.Group fetchGrouperGroup(String groupId) {
+        edu.internet2.middleware.grouper.Group group = CacheManager.grouperGroups().get(groupId);
+        if (group == null) {
+            group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(false), groupId, false);
+
+            if (group != null) {
+                CacheManager.grouperGroups().put(group);
+            }
+        }
+
+        return group;
+    }
+
+    private Subject fetchGrouperSubject(String sourceId, String subjectId) {
+        Subject subject = CacheManager.grouperSubjects().get(sourceId + "__" + subjectId);
+        if (subject == null) {
+            subject = SubjectFinder.findByIdAndSource(subjectId, sourceId, false);
+
+            if (subject != null) {
+                CacheManager.grouperSubjects().put(subject);
+            }
+        }
+
+        return subject;
+    }
+
+    private User createUser(Subject subject) throws IOException {
+        User newUser = new User();
+        newUser.setName(new UserName());
+        //TODO: Parameterize the attributes
+        newUser.setPrimaryEmail(subject.getAttributeValue("mail"));
+        newUser.getName().setGivenName(subject.getAttributeValue("givenName"));
+        newUser.getName().setFamilyName(subject.getAttributeValue("sn"));
+        newUser.getName().setFullName(subject.getAttributeValue("displayName"));
+        newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+
+        newUser = GoogleAppsUtils.addUser(directory, newUser);
+        CacheManager.googleUsers().put(newUser);
+        return newUser;
+    }
+
+    private void createMember(Group group, User user, String role) throws IOException {
+        Member gMember = new Member();
+        gMember.setEmail(user.getPrimaryEmail());
+        gMember.setRole(role);
+
+        GoogleAppsUtils.addGroupMember(directory, group, gMember);
     }
 }

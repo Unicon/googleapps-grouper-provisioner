@@ -19,6 +19,7 @@ package edu.internet2.middleware.changelogconsumer.googleapps.cache;
 
 import com.google.api.services.admin.directory.model.Group;
 import com.google.api.services.admin.directory.model.User;
+import edu.internet2.middleware.subject.Subject;
 
 /**
  * ObjectCache stores objects retrieved from Google to save on the number of API round trips required.
@@ -30,6 +31,9 @@ import com.google.api.services.admin.directory.model.User;
 public class CacheManager {
     private static Cache googleUsers = new Cache<User>();
     private static Cache googleGroups = new Cache<Group>();
+
+    private static Cache grouperSubjects = new Cache<Subject>();
+    private static Cache grouperGroups = new Cache<edu.internet2.middleware.grouper.Group>();
 
     /**
      *
@@ -46,4 +50,22 @@ public class CacheManager {
     public static Cache<Group> googleGroups() {
         return googleGroups;
     }
+
+
+    /**
+     *
+     * @return a Grouper Group cache
+     */
+    public static Cache<Subject> grouperSubjects() {
+        return grouperSubjects;
+    }
+
+    /**
+     *
+     * @return a Grouper Group cache
+     */
+    public static Cache<edu.internet2.middleware.grouper.Group> grouperGroups() {
+        return grouperGroups;
+    }
+
 }

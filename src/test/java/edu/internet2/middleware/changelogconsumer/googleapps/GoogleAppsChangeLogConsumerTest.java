@@ -29,6 +29,7 @@ import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.CacheManager;
+import edu.internet2.middleware.grouper.GrouperSession;
 import edu.internet2.middleware.grouper.SubjectFinder;
 import edu.internet2.middleware.grouper.app.loader.GrouperLoaderConfig;
 import edu.internet2.middleware.grouper.changeLog.*;
@@ -40,6 +41,7 @@ import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.*;
 
+import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
 import org.junit.*;
 import org.junit.runner.RunWith;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
@@ -48,7 +50,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 
 @RunWith(PowerMockRunner.class)
 @PowerMockIgnore({"javax.net.ssl.*", "org.apache.log4j.*", "javax.xml.parsers.*", "org.apache.xerces.jaxp.*",  "org.xml.*", "net.sf.ehcache.*"})
-@PrepareForTest(value = { GrouperLoaderConfig.class, GrouperLoaderConfig.class, Subject.class, SubjectFinder.class})
+@PrepareForTest(value = { GrouperSession.class, GrouperLoaderConfig.class, Subject.class, SubjectFinder.class})
 public class GoogleAppsChangeLogConsumerTest {
 
     private static final String groupId = "testGroup";
@@ -120,6 +122,15 @@ public class GoogleAppsChangeLogConsumerTest {
 
         CacheManager.googleGroups().clear();
         CacheManager.googleUsers().clear();
+        CacheManager.grouperGroups().clear();
+        CacheManager.grouperSubjects().clear();
+
+        //Give Google a second to catch up since we create and destroy the same users and groups over and over
+        try {
+            Thread.sleep(1500L);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -157,7 +168,7 @@ public class GoogleAppsChangeLogConsumerTest {
 
 
     @Test
-    public void testProcessGroupMemberAddExisting() throws GeneralSecurityException, IOException {
+    public void testProcessGroupMemberAddExistingUser() throws GeneralSecurityException, IOException {
         //User already exists in Google
         createTestGroup(groupId);
         createTestUser(GoogleAppsUtils.qualifyAddress(subjectId), "testgn", "testfm");
@@ -167,6 +178,38 @@ public class GoogleAppsChangeLogConsumerTest {
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId)).thenReturn(groupId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(subjectId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
+        when(addEntry.getContextId()).thenReturn("123456789");
+
+        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+
+        mockStatic(SubjectFinder.class);
+        Subject subject = getTestUserSubject();
+        when(SubjectFinder.findByIdAndSource(subjectId, sourceId, false)).thenReturn(subject);
+
+        consumer.processChangeLogEntries(changeLogEntryList, metadata);
+
+        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true));
+        assertNotNull(members);
+        assertTrue(members.size() == 1);
+        assertTrue(members.get(0).getEmail().equalsIgnoreCase(GoogleAppsUtils.qualifyAddress(subjectId)));
+    }
+
+    @Test
+    public void testProcessGroupMemberAddNewUser() throws GeneralSecurityException, IOException {
+        //User doesn't exists in Google
+        createTestGroup(groupId);
+
+        mockStatic(SubjectFinder.class);
+        Subject subject = getTestUserSubject();
+        when(SubjectFinder.findByIdAndSource(subjectId, sourceId, false)).thenReturn(subject);
+
+        ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
+        when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "addMembership", ""));
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(subjectId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
         ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
@@ -180,24 +223,20 @@ public class GoogleAppsChangeLogConsumerTest {
     }
 
     @Test
-    public void testProcessGroupMemberAddNew() throws GeneralSecurityException, IOException {
-        //User doesn't exists in Google
+    public void testProcessGroupMemberAddNewGroup() throws GeneralSecurityException, IOException {
+        //Adding a inner/nested group's users
+        fail("test not fully implemented yet");
         createTestGroup(groupId);
 
-        Subject subject = mock(Subject.class);
-        when(subject.getAttributeValue("givenName")).thenReturn("testgn2");
-        when(subject.getAttributeValue("sn")).thenReturn("testfn2");
-        when(subject.getAttributeValue("displayName")).thenReturn("testgn2, testfn2");
-        when(subject.getAttributeValue("mail")).thenReturn(GoogleAppsUtils.qualifyAddress(subjectId));
-
         mockStatic(SubjectFinder.class);
-        when(SubjectFinder.findByIdAndSource(subjectId, sourceId, true)).thenReturn(subject);
+        Subject subject = getTestUserSubject();
+        when(SubjectFinder.findByIdAndSource(groupId, sourceId, false)).thenReturn(subject);
 
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "addMembership", ""));
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId)).thenReturn(groupId);
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupId);
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(subjectId);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(groupId+"2");
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
@@ -269,6 +308,8 @@ public class GoogleAppsChangeLogConsumerTest {
         fail("Not Implemented");
     }
 
+    /*
+    We don't need to worry about these since the membership and groups are managed
     @Test
     public void testProcessPrivilegeAdded() throws GeneralSecurityException, IOException {
         fail("Not Implemented");
@@ -283,6 +324,7 @@ public class GoogleAppsChangeLogConsumerTest {
     public void testProcessPrivilegeChange() throws GeneralSecurityException, IOException {
         fail("Not Implemented");
     }
+    */
 
     @Test
     public void testProcessGroupDelete() throws GeneralSecurityException, IOException {
@@ -314,5 +356,25 @@ public class GoogleAppsChangeLogConsumerTest {
         user.getName().setGivenName(givenName);
         user.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
         return GoogleAppsUtils.addUser(consumer.getDirectory(), user);
+    }
+
+    private Subject getTestUserSubject() {
+        Subject subject = mock(Subject.class);
+        when(subject.getAttributeValue("givenName")).thenReturn("testgn2");
+        when(subject.getAttributeValue("sn")).thenReturn("testfn2");
+        when(subject.getAttributeValue("displayName")).thenReturn("testgn2, testfn2");
+        when(subject.getAttributeValue("mail")).thenReturn(GoogleAppsUtils.qualifyAddress(subjectId));
+        when(subject.getType()).thenReturn(SubjectTypeEnum.PERSON);
+        return subject;
+    }
+
+    private Subject getTestGroupSubject() {
+        Subject subject = mock(Subject.class);
+        when(subject.getAttributeValue("givenName")).thenReturn("testgn2");
+        when(subject.getAttributeValue("sn")).thenReturn("testfn2");
+        when(subject.getAttributeValue("displayName")).thenReturn("testgn2, testfn2");
+        when(subject.getAttributeValue("mail")).thenReturn(GoogleAppsUtils.qualifyAddress(subjectId));
+        when(subject.getType()).thenReturn(SubjectTypeEnum.GROUP);
+        return subject;
     }
 }

@@ -18,13 +18,14 @@ package edu.internet2.middleware.changelogconsumer.googleapps.cache;
 
 import com.google.api.services.admin.directory.model.Group;
 import com.google.api.services.admin.directory.model.User;
+import edu.internet2.middleware.subject.Subject;
 import org.joda.time.DateTime;
 
 import java.util.Hashtable;
 import java.util.List;
 
 /**
- * CacheObject supports Google User & Group object
+ * CacheObject supports Google User, Google Group, Grouper Subject, and Grouper Group objects.
  *
  * * @author John Gasper, Unicon
  */
@@ -51,6 +52,10 @@ public class Cache<T> {
         }
     }
 
+    public void seed(int size) {
+        cache = new Hashtable<String, T>(size);
+    }
+
     public void seed(List<T> items) {
         cache = new Hashtable<String, T>(items.size() + 100);
 
@@ -61,12 +66,23 @@ public class Cache<T> {
         cachePopulatedTime = new DateTime();
     }
 
+    public int size() {
+        return cache == null ? 0 : cache.size();
+    }
+
     private String getId(T item) {
         if (item.getClass().equals(User.class)) {
             return ((User) item).getPrimaryEmail();
-        } else { //if (item.getClass().equals(Group.class))
+        } else if (item.getClass().equals(Group.class)) {
             return ((Group) item).getEmail();
+        } else if (item.getClass().equals(Subject.class)) {
+            return ((Subject) item).getSourceId() + "__" + ((Subject) item).getId();
+        } else if (item.getClass().equals(edu.internet2.middleware.grouper.Group.class)) {
+            return ((Group) item).getName();
+        } else {
+            return item.toString();
         }
+
     }
 
     public void setCacheValidity(int minutes){
