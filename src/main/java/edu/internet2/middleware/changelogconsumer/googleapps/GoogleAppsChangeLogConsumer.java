@@ -649,12 +649,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         //TODO: to archive or not to archive... that is the question!
 
-        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id);
+        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.id);
 
         try {
             String groupKey = GoogleAppsUtils.qualifyAddress(groupId, true);
-            CacheManager.googleGroups().remove(groupKey);
             GoogleAppsUtils.removeGroup(directory, groupKey);
+            CacheManager.googleGroups().remove(groupKey);
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", Arrays.asList(name, toString(changeLogEntry), e.getMessage()));
         }
@@ -707,7 +707,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", name,
                 toString(changeLogEntry));
 
-        //TODO: to archive or not to archive... that is the question!
 
         Set<edu.internet2.middleware.grouper.Member> members = new HashSet<edu.internet2.middleware.grouper.Member>();
 
@@ -722,34 +721,15 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         try {
             Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
 
-            User user;
+            //For nested groups, ChangeLogEvents fire when the group is added, and also for each indirect user added,
+            //so we only need to handle PERSON events.
             if (subjectType == SubjectTypeEnum.PERSON) {
-                user = fetchGooUser(GoogleAppsUtils.qualifyAddress(subjectId));
+                User user = fetchGooUser(GoogleAppsUtils.qualifyAddress(subjectId));
                 if (user == null) {
                     user = createUser(lookupSubject);
                 }
 
                 createMember(group, user, ROLE);
-
-            } else if (subjectType == SubjectTypeEnum.GROUP) {
-                edu.internet2.middleware.grouper.Group nestedGroup = fetchGrouperGroup(subjectId);
-                members = nestedGroup.getEffectiveMembers();
-
-                for (edu.internet2.middleware.grouper.Member member : members) {
-                    user = fetchGooUser(GoogleAppsUtils.qualifyAddress(member.getSubjectId()));
-
-                    if (user == null) {
-                        Subject subject = fetchGrouperSubject(member.getSubjectSourceId(), member.getSubjectId());
-                        if (subject == null) {
-                            user = createUser(subject);
-                        }
-                    }
-
-                    createMember(group, user, "MEMBER");
-                }
-            } else {
-                LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add, subjectType not mapped.",
-                        Arrays.asList(name, toString(changeLogEntry)), subjectType.getName());
             }
 
         } catch (IOException e) {
@@ -760,7 +740,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Delete a membership.
+     * Delete a membership entry.
      *
      * @param consumer the change log consumer
      * @param changeLogEntry the change log entry
@@ -771,13 +751,21 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupId);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
+        final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
 
-        try {
-            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
-            GoogleAppsUtils.removeGroupMember(directory, group.getEmail(), GoogleAppsUtils.qualifyAddress(subjectId));
-        } catch (IOException e) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
-                    toString(changeLogEntry), e));
+        Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
+        SubjectType subjectType = lookupSubject.getType();
+
+        //For nested groups, ChangeLogEvents fire when the group is removed, and also for each indirect user added,
+        //so we only need to handle PERSON events.
+        if (subjectType == SubjectTypeEnum.PERSON) {
+            try {
+                Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
+                GoogleAppsUtils.removeGroupMember(directory, group.getEmail(), GoogleAppsUtils.qualifyAddress(subjectId));
+            } catch (IOException e) {
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
+                        toString(changeLogEntry), e));
+            }
         }
     }
 

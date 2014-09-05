@@ -223,34 +223,6 @@ public class GoogleAppsChangeLogConsumerTest {
     }
 
     @Test
-    public void testProcessGroupMemberAddNewGroup() throws GeneralSecurityException, IOException {
-        //Adding a inner/nested group's users
-        fail("test not fully implemented yet");
-        createTestGroup(groupId);
-
-        mockStatic(SubjectFinder.class);
-        Subject subject = getTestUserSubject();
-        when(SubjectFinder.findByIdAndSource(groupId, sourceId, false)).thenReturn(subject);
-
-        ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
-        when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "addMembership", ""));
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId)).thenReturn(groupId);
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName)).thenReturn(groupId);
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId)).thenReturn(groupId+"2");
-        when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
-        when(addEntry.getContextId()).thenReturn("123456789");
-
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
-
-        consumer.processChangeLogEntries(changeLogEntryList, metadata);
-
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupId, true));
-        assertNotNull(members);
-        assertTrue(members.size() == 1);
-        assertTrue(members.get(0).getEmail().equalsIgnoreCase(GoogleAppsUtils.qualifyAddress(subjectId)));
-    }
-
-    @Test
     public void testProcessGroupMemberRemove() throws GeneralSecurityException, IOException {
         //User already exists in Google
         Group group = createTestGroup(groupId);
