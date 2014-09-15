@@ -78,7 +78,7 @@ public class Cache<T> {
         } else if (item.getClass().equals(Subject.class)) {
             return ((Subject) item).getSourceId() + "__" + ((Subject) item).getId();
         } else if (item.getClass().equals(edu.internet2.middleware.grouper.Group.class)) {
-            return ((Group) item).getName();
+            return ((edu.internet2.middleware.grouper.Group) item).getName();
         } else {
             return item.toString();
         }

@@ -38,9 +38,11 @@ import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.CacheManager;
-import edu.internet2.middleware.grouper.GroupFinder;
-import edu.internet2.middleware.grouper.GrouperSession;
-import edu.internet2.middleware.grouper.SubjectFinder;
+import edu.internet2.middleware.grouper.*;
+import edu.internet2.middleware.grouper.attr.AttributeDef;
+import edu.internet2.middleware.grouper.attr.AttributeDefName;
+import edu.internet2.middleware.grouper.attr.AttributeDefType;
+import edu.internet2.middleware.grouper.attr.finder.AttributeDefNameFinder;
 import edu.internet2.middleware.grouper.changeLog.*;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.SubjectType;
@@ -156,10 +158,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     }
 
-    /** LDAP error returned when a stem/ou is renamed and the DSA does not support subtree renaming. */
-    public static final String ERROR_SUBTREE_RENAME_NOT_SUPPORTED =
-            "[LDAP: error code 66 - subtree rename not supported]";
-
     /** Boolean used to delay change log processing when a full sync is running. */
     private static boolean fullSyncIsRunning;
 
@@ -217,6 +215,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     /** Whether or not to omit sync responses in a bulk response. */
     private boolean omitSyncResponses = false;
 
+    /** Whether or not to provision users. */
+    private boolean provisionUser;
+
+    /** Whether or not to de-provision users. */
+    private boolean deprovisionUser;
+
     /** Google Directory service*/
     private Directory directory;
 
@@ -226,6 +230,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     /** Global instance of the JSON factory. */
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
+
+    private AttributeDefName syncAttribute;
     /**
      *
      * Constructor. Initializes the underlying {@link Directory}.
@@ -236,134 +242,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Execute each {@link ModifyRequest}. If an error occurs executing a request, continue to execute requests, but
-     * throw an exception upon completion.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     * @param modifyRequests the modify requests
-     */
-  /*
-    protected void executeModifyRequests(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry,
-                                      Collection<ModifyRequest> modifyRequests) {
-
-        boolean isError = false;
-
-        for (ModifyRequest modifyRequest : modifyRequests) {
-
-            ModifyResponse modifyResponse = consumer.getPsp().execute(modifyRequest);
-
-            if (modifyResponse.getStatus().equals(StatusCode.SUCCESS)) {
-                LOG.info("Google Apps Consumer '{}' - Change log entry '{}' Modify '{}'", new Object[] {name,
-                        toString(changeLogEntry), PSPUtil.toString(modifyResponse),});
-            } else {
-                LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Modify failed '{}'", new Object[] {name,
-                        toString(changeLogEntry), PSPUtil.toString(modifyResponse),});
-                isError = true;
-            }
-        }
-
-        if (isError) {
-            String message =
-                    "Google Apps Consumer '" + name + "' - Change log entry '" + toString(changeLogEntry) + "' Modify failed";
-            LOG.error(message);
-            throw new PspException(message);
-        }
-    }
-*/
-    /**
-     * Create and execute a {@link SyncRequest}. The request identifier is retrieved from the {@link ChangeLogEntry}
-     * using the {@link ChangeLogLabel}.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     * @param changeLogLabel the change log label used to determine the sync request identifier
-     */
-/*
-    protected void executeSync(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry, ChangeLogLabel changeLogLabel) {
-
-        // will throw a RuntimeException on error
-        String principalName = changeLogEntry.retrieveValueForLabel(changeLogLabel);
-
-        SyncRequest syncRequest = new SyncRequest();
-        syncRequest.setId(principalName);
-        syncRequest.setRequestID(PSPUtil.uniqueRequestId());
-
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Will attempt to sync '{}'", new Object[] {name,
-                toString(changeLogEntry), PSPUtil.toString(syncRequest),});
-
-        SyncResponse syncResponse = consumer.getPsp().execute(syncRequest);
-
-        if (syncResponse.getStatus().equals(StatusCode.SUCCESS)) {
-            LOG.info("Google Apps Consumer '{}' - Change log entry '{}' Sync was successful '{}'", new Object[] {name,
-                    toString(changeLogEntry), PSPUtil.toString(syncResponse),});
-        } else if (syncResponse.getError().equals(ErrorCode.NO_SUCH_IDENTIFIER)) {
-            LOG.info("Google Apps Consumer '{}' - Change log entry '{}' Sync unable to calculate provisioning '{}'",
-                    new Object[] {name, toString(changeLogEntry), PSPUtil.toString(syncResponse),});
-        } else {
-            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Sync failed '{}'", new Object[] {name,
-                    toString(changeLogEntry), PSPUtil.toString(syncResponse),});
-            throw new PspException(PSPUtil.toString(syncResponse));
-        }
-    }
-*/
-    /**
-     * Run a full synchronization by executing a {@link BulkSyncRequest}.
-     *
-     * @return the response
-     */
-    /*
-    public synchronized Response fullSync() {
-
-        LOG.info("Google Apps Consumer '{}' - Starting full sync", name);
-
-        if (fullSyncIsRunning) {
-            LOG.info("Google Apps Consumer '{}' - Full sync is already running, will defer to next scheduled trigger.", name);
-            return null;
-        }
-
-        fullSyncIsRunning = true;
-
-        StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
-
-        // Perform bulk sync request without responses to conserve memory.
-        BulkSyncRequest request = new BulkSyncRequest();
-        if (omitDiffResponses) {
-            request.setReturnDiffResponses(false);
-        }
-        if (omitSyncResponses) {
-            request.setReturnSyncResponses(false);
-        }
-        BulkSyncResponse response = psp.execute(request);
-
-        stopWatch.stop();
-
-        fullSyncIsRunning = false;
-
-        if (response.getStatus().equals(StatusCode.SUCCESS)) {
-            LOG.info("Google Apps Consumer '{}' - Full sync was successful '{}'", name, PSPUtil.toString(response));
-        } else {
-            LOG.error("Google Apps Consumer '{}' - Full sync was not successful '{}'", name, PSPUtil.toString(response));
-        }
-
-        LOG.info("Google Apps Consumer '{}' - Finished full sync. Elapsed time {}", name, stopWatch);
-
-        if (LOG.isDebugEnabled()) {
-            for (String stats : PspCLI.getAllCacheStats()) {
-                LOG.debug(stats);
-            }
-        }
-
-        return response;
-    }
-*/
-    /**
      * Return the {@link Directory}.
      *
      * @return the Google Apps Directory (service) object
      */
-
     protected Directory getDirectory() {
         return directory;
     }
@@ -414,7 +296,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             CacheManager.grouperGroups().setCacheValidity(15);
             CacheManager.grouperGroups().seed(CacheManager.googleGroups().size());
 
-//            GrouperSession.startRootSession();
         }
 
             // retry on error
@@ -462,10 +343,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param changeLogEntry the change log entry
      */
     protected void processAttributeAssignValueDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry)  {
-/*
+
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing delete attribute assign value.", name,
                 toString(changeLogEntry));
-
+/*
         List<ModifyRequest> modifyRequests =
                 consumer.processModification(consumer, changeLogEntry, ModificationMode.DELETE, ReturnData.DATA);
 
@@ -478,6 +359,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     public long processChangeLogEntries(final List<ChangeLogEntry> changeLogEntryList,
                                         ChangeLogProcessorMetadata changeLogProcessorMetadata) {
 
+        GrouperSession grouperSession = null;
+
         //let's populate the caches, if necessary
         populateGooUsersCache(getDirectory());
         populateGooGroupsCache(getDirectory());
@@ -485,78 +368,86 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         // the change log sequence number to return
         long sequenceNumber = -1;
 
-        // initialize this consumer's name from the change log metadata
-        if (name == null) {
-            name = changeLogProcessorMetadata.getConsumerName();
-            LOG.trace("Google Apps Consumer '{}' - Setting name.", name);
-        }
-
-        // time context processing
-        StopWatch stopWatch = new StopWatch();
-        // the last change log sequence number processed
-        String lastContextId = null;
-
-        LOG.debug("Google Apps Consumer '{}' - Processing change log entry list size '{}'", name, changeLogEntryList.size());
-
-        // process each change log entry
-        for (ChangeLogEntry changeLogEntry : changeLogEntryList) {
-
-            // return the current change log sequence number
-            sequenceNumber = changeLogEntry.getSequenceNumber();
-
-            // if full sync is running, return the previous sequence number to process this entry on the next run
-            if (fullSyncIsRunning) {
-                LOG.info("Google Apps Consumer '{}' - Full sync is running, returning sequence number '{}'", name,
-                        sequenceNumber - 1);
-                return sequenceNumber - 1;
+        try {
+            // initialize this consumer's name from the change log metadata
+            if (name == null) {
+                name = changeLogProcessorMetadata.getConsumerName();
+                LOG.trace("Google Apps Consumer '{}' - Setting name.", name);
             }
 
-            // if first run, start the stop watch and store the last sequence number
-            if (lastContextId == null) {
-                stopWatch.start();
+            grouperSession = GrouperSession.startRootSession();
+            syncAttribute = getGoogleSyncAttribute();
+
+            // time context processing
+            final StopWatch stopWatch = new StopWatch();
+            // the last change log sequence number processed
+            String lastContextId = null;
+
+            LOG.debug("Google Apps Consumer '{}' - Processing change log entry list size '{}'", name, changeLogEntryList.size());
+
+            // process each change log entry
+            for (ChangeLogEntry changeLogEntry : changeLogEntryList) {
+
+                // return the current change log sequence number
+                sequenceNumber = changeLogEntry.getSequenceNumber();
+
+                // if full sync is running, return the previous sequence number to process this entry on the next run
+                if (fullSyncIsRunning) {
+                    LOG.info("Google Apps Consumer '{}' - Full sync is running, returning sequence number '{}'", name,
+                            sequenceNumber - 1);
+                    return sequenceNumber - 1;
+                }
+
+                // if first run, start the stop watch and store the last sequence number
+                if (lastContextId == null) {
+                    stopWatch.start();
+                    lastContextId = changeLogEntry.getContextId();
+                }
+
+                // whether or not an exception was thrown during processing of the change log entry
+                boolean errorOccurred = false;
+
+                try {
+                    // process the change log entry
+                    processChangeLogEntry(changeLogEntry);
+
+                } catch (Exception e) {
+                    errorOccurred = true;
+                    String message =
+                            "Google Apps Consumer '" + name + "' - An error occurred processing sequence number " + sequenceNumber;
+                    LOG.error(message, e);
+                    changeLogProcessorMetadata.registerProblem(e, message, sequenceNumber);
+                    changeLogProcessorMetadata.setHadProblem(true);
+                    changeLogProcessorMetadata.setRecordException(e);
+                    changeLogProcessorMetadata.setRecordExceptionSequence(sequenceNumber);
+                }
+
+                // if the change log context id has changed, log and restart stop watch
+                if (!lastContextId.equals(changeLogEntry.getContextId())) {
+                    stopWatch.stop();
+                    LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {name,
+                            lastContextId, stopWatch,});
+                    stopWatch.reset();
+                    stopWatch.start();
+                }
+
                 lastContextId = changeLogEntry.getContextId();
+
+                // if an error occurs and retry on error is true, return the current sequence number minus 1
+                if (errorOccurred && retryOnError) {
+                    sequenceNumber--;
+                    break;
+                }
             }
 
-            // whether or not an exception was thrown during processing of the change log entry
-            boolean errorOccurred = false;
+            // stop the timer and log
+            stopWatch.stop();
+            LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {name,
+                    lastContextId, stopWatch,});
 
-            try {
-                // process the change log entry
-                processChangeLogEntry(changeLogEntry);
-
-            } catch (Exception e) {
-                errorOccurred = true;
-                String message =
-                        "Google Apps Consumer '" + name + "' - An error occurred processing sequence number " + sequenceNumber;
-                LOG.error(message, e);
-                changeLogProcessorMetadata.registerProblem(e, message, sequenceNumber);
-                changeLogProcessorMetadata.setHadProblem(true);
-                changeLogProcessorMetadata.setRecordException(e);
-                changeLogProcessorMetadata.setRecordExceptionSequence(sequenceNumber);
-            }
-
-            // if the change log context id has changed, log and restart stop watch
-            if (!lastContextId.equals(changeLogEntry.getContextId())) {
-                stopWatch.stop();
-                LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {name,
-                        lastContextId, stopWatch,});
-                stopWatch.reset();
-                stopWatch.start();
-            }
-
-            lastContextId = changeLogEntry.getContextId();
-
-            // if an error occurs and retry on error is true, return the current sequence number minus 1
-            if (errorOccurred && retryOnError) {
-                sequenceNumber--;
-                break;
-            }
+        } finally {
+            GrouperSession.stopQuietly(grouperSession);
         }
-
-        // stop the timer and log
-        stopWatch.stop();
-        LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {name,
-                lastContextId, stopWatch,});
 
         if (sequenceNumber == -1) {
             LOG.error("Google Apps Consumer '" + name + "' - Unable to process any records.");
@@ -580,13 +471,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     protected void processChangeLogEntry(ChangeLogEntry changeLogEntry) throws Exception {
         try {
             // find the method to run via the enum
-            String enumKey =
+            final String enumKey =
                     changeLogEntry.getChangeLogType().getChangeLogCategory() + "__"
                             + changeLogEntry.getChangeLogType().getActionName();
 
-            EventType ldappcEventType = EventType.valueOf(enumKey);
+            final EventType eventType = EventType.valueOf(enumKey);
 
-            if (ldappcEventType == null) {
+            if (eventType == null) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Unsupported category and action.", name,
                         toString(changeLogEntry));
             } else {
@@ -595,7 +486,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 StopWatch stopWatch = new StopWatch();
                 stopWatch.start();
 
-                ldappcEventType.process(this, changeLogEntry);
+                eventType.process(this, changeLogEntry);
 
                 stopWatch.stop();
                 LOG.info("Google Apps Consumer '{}' - Change log entry '{}' Finished processing. Elapsed time {}",
@@ -618,23 +509,25 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group add.", name, toString(changeLogEntry));
 
-        //TODO: Determine if Group qualifies to be sync'ed
-
-        final Group group = new Group();
-        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.id);
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name);
-        final String description = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.description);
-        final String displayName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.displayName);
 
-        group.setName(groupName);
-        group.setEmail(GoogleAppsUtils.qualifyAddress(groupId, true));
-        group.setDescription(description);
+        edu.internet2.middleware.grouper.Group  grouperGroup = fetchGrouperGroup(groupName);
+        if (!shouldSyncGroup(grouperGroup)) {
+            return;
+        }
+
+        final Group googleGroup = new Group();
+        googleGroup.setName(grouperGroup.getDisplayExtension());
+        googleGroup.setEmail(GoogleAppsUtils.qualifyAddress(groupName, true));
+        googleGroup.setDescription(grouperGroup.getDescription());
 
         try {
-            CacheManager.googleGroups().put(GoogleAppsUtils.addGroup(directory, group));
+            CacheManager.googleGroups().put(GoogleAppsUtils.addGroup(directory, googleGroup));
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
         }
+
+        //TODO: Apply other G Groups Config
     }
 
     /**
@@ -649,10 +542,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         //TODO: to archive or not to archive... that is the question!
 
-        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.id);
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
 
         try {
-            String groupKey = GoogleAppsUtils.qualifyAddress(groupId, true);
+            String groupKey = GoogleAppsUtils.qualifyAddress(groupName, true);
             GoogleAppsUtils.removeGroup(directory, groupKey);
             CacheManager.googleGroups().remove(groupKey);
         } catch (IOException e) {
@@ -670,14 +563,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group update.", name, toString(changeLogEntry));
 
-        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.id);
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.name);
         final String propertyChanged = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyChanged);
         final String propertyOldValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue);
         final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue);
 
         try {
-            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
+            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupName, true));
 
             if (propertyChanged.equalsIgnoreCase("name")) {
                 group.setName(propertyNewValue);
@@ -707,29 +599,29 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", name,
                 toString(changeLogEntry));
 
+        final Set<edu.internet2.middleware.grouper.Member> members = new HashSet<edu.internet2.middleware.grouper.Member>();
 
-        Set<edu.internet2.middleware.grouper.Member> members = new HashSet<edu.internet2.middleware.grouper.Member>();
-
-        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupId);
-
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
 
-        Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
+        final Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
+        final SubjectType subjectType = lookupSubject.getType();
 
-        SubjectType subjectType = lookupSubject.getType();
         try {
-            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
+            Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupName, true));
 
             //For nested groups, ChangeLogEvents fire when the group is added, and also for each indirect user added,
             //so we only need to handle PERSON events.
             if (subjectType == SubjectTypeEnum.PERSON) {
                 User user = fetchGooUser(GoogleAppsUtils.qualifyAddress(subjectId));
-                if (user == null) {
+                if (user == null && provisionUser == true) {
                     user = createUser(lookupSubject);
                 }
 
-                createMember(group, user, ROLE);
+                if (user != null) {
+                    createMember(group, user, ROLE);
+                }
             }
 
         } catch (IOException e) {
@@ -749,18 +641,18 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership delete.", name,
                 toString(changeLogEntry));
 
-        final String groupId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupId);
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupName);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
-        final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
+        final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.sourceId);
 
-        Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
-        SubjectType subjectType = lookupSubject.getType();
+        final Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
+        final SubjectType subjectType = lookupSubject.getType();
 
         //For nested groups, ChangeLogEvents fire when the group is removed, and also for each indirect user added,
         //so we only need to handle PERSON events.
         if (subjectType == SubjectTypeEnum.PERSON) {
             try {
-                Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupId, true));
+                Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupName, true));
                 GoogleAppsUtils.removeGroupMember(directory, group.getEmail(), GoogleAppsUtils.qualifyAddress(subjectId));
             } catch (IOException e) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
@@ -770,221 +662,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Return a {@link ModifyRequest} for the given {@link PSO} whose references or attributes need to be modified.
-     *
-     * @param pso the provisioned service object
-     * @param modificationMode the modification mode
-     * @param returnData spmlv2 return data
-     * @return the modify request or null if there are no modifications to be performed
-     */
-
-    /*protected ModifyRequest processModification(PSO pso, ModificationMode modificationMode, ReturnData returnData) {
-
-        List<DSMLAttr> attributes = processModificationData(pso, modificationMode);
-
-        List<Reference> references = processModificationReferences(pso, modificationMode);
-
-        if (references.isEmpty() && attributes.isEmpty()) {
-            return null;
-        }
-
-        ModifyRequest modifyRequest = new ModifyRequest();
-        modifyRequest.setRequestID(PSPUtil.uniqueRequestId());
-        modifyRequest.setPsoID(pso.getPsoID());
-        modifyRequest.addOpenContentAttr(Pso.ENTITY_NAME_ATTRIBUTE,
-                pso.findOpenContentAttrValueByName(Pso.ENTITY_NAME_ATTRIBUTE));
-        modifyRequest.setReturnData(ReturnData.IDENTIFIER);
-
-        if (!attributes.isEmpty()) {
-            for (DSMLAttr dsmlAttr : attributes) {
-                Modification modification = new Modification();
-                modification.setModificationMode(modificationMode);
-                DSMLModification dsmlMod =
-                        new DSMLModification(dsmlAttr.getName(), dsmlAttr.getValues(), modificationMode);
-                modification.addOpenContentElement(dsmlMod);
-                modifyRequest.addModification(modification);
-            }
-        }
-
-        if (!references.isEmpty()) {
-            Modification modification = new Modification();
-            modification.setModificationMode(modificationMode);
-            CapabilityData capabilityData = PSPUtil.fromReferences(references);
-            modification.addCapabilityData(capabilityData);
-            modifyRequest.addModification(modification);
-        }
-
-        return modifyRequest;
-    }
-*/
-    /**
-     * Return a {@link ModifyRequest} for every {@link PSO} whose references or attributes need to be modified.
-     *
-     * @param consumer the psp change log consumer
-     * @param changeLogEntry the change log entry
-     * @param modificationMode the modification mode
-     * @param returnData spmlv2 return data
-     * @return the possibly empty list of modify requests
-     */
-    /*
-    public List<ModifyRequest> processModification(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry,
-                                                   ModificationMode modificationMode, ReturnData returnData) {
-
-        List<ModifyRequest> modifyRequests = new ArrayList<ModifyRequest>();
-
-        CalcRequest calcRequest = new CalcRequest();
-        calcRequest.setRequestID(PSPUtil.uniqueRequestId());
-        if (returnData != null) {
-            calcRequest.setReturnData(returnData);
-        }
-
-        CalcResponse calcResponse = consumer.getPsp().execute(calcRequest);
-
-        for (PSO pso : calcResponse.getPSOs()) {
-
-            ModifyRequest modifyRequest = processModification(pso, modificationMode, returnData);
-
-            if (modifyRequest != null) {
-                modifyRequests.add(modifyRequest);
-            }
-        }
-
-        return modifyRequests;
-    }
-*/
-    /**
-     * Return the {@link DSMLAttr}s which need to be added or deleted to the {@link PSO}.
-     *
-     * @param pso the provisioned object
-     * @param modificationMode the modification mode, either add or delete
-     * @return the possibly empty list of attributes
-     */
-    /*
-    public List<DSMLAttr> processModificationData(PSO pso, ModificationMode modificationMode) {
-
-        // the attributes which need to be modified
-        List<DSMLAttr> attributesToBeModified = new ArrayList<DSMLAttr>();
-
-        // attributes from the pso
-        Map<String, DSMLAttr> dsmlAttrMap = PSPUtil.getDSMLAttrMap(pso.getData());
-
-        // for every attribute
-        for (String dsmlAttrName : dsmlAttrMap.keySet()) {
-            DSMLAttr dsmlAttr = dsmlAttrMap.get(dsmlAttrName);
-
-            // the dsml values to be added or deleted
-            List<DSMLValue> dsmlValuesToBeModified = new ArrayList<DSMLValue>();
-
-            // for every attribute value
-            for (DSMLValue dsmlValue : dsmlAttr.getValues()) {
-
-                // if modification mode is delete, do not delete value if retain all values is true
-                if (modificationMode.equals(ModificationMode.DELETE)) {
-                    String entityName = pso.findOpenContentAttrValueByName(Pso.ENTITY_NAME_ATTRIBUTE);
-                    if (entityName != null) {
-                        Pso psoDefinition = psp.getPso(pso.getPsoID().getTargetID(), entityName);
-                        if (psoDefinition != null) {
-                            boolean retainAll = psoDefinition.getPsoAttribute(dsmlAttrName).isRetainAll();
-                            if (retainAll) {
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-                try {
-                    // perform a search to determine if the attribute exists
-                    boolean hasAttribute = psp.hasAttribute(pso.getPsoID(), dsmlAttr.getName(), dsmlValue.getValue());
-
-                    // if adding attribute and it does not exist on target, modify
-                    if (modificationMode.equals(ModificationMode.ADD) && !hasAttribute) {
-                        dsmlValuesToBeModified.add(dsmlValue);
-                    }
-
-                    // if replacing attribute and it does not exist on target, modify
-                    if (modificationMode.equals(ModificationMode.REPLACE) && !hasAttribute) {
-                        dsmlValuesToBeModified.add(dsmlValue);
-                    }
-
-                    // if deleting attribute and it exists on target, modify
-                    if (modificationMode.equals(ModificationMode.DELETE) && hasAttribute) {
-                        dsmlValuesToBeModified.add(dsmlValue);
-                    }
-                } catch (PspNoSuchIdentifierException e) {
-                    if (modificationMode.equals(ModificationMode.DELETE)) {
-                        // ignore, must be already deleted, do not throw exception
-                    } else {
-                        throw new PspException(e);
-                    }
-                }
-            }
-
-            // return the dsml values to be added
-            if (!dsmlValuesToBeModified.isEmpty()) {
-                attributesToBeModified.add(new DSMLAttr(dsmlAttr.getName(), dsmlValuesToBeModified
-                        .toArray(new DSMLValue[] {})));
-            }
-        }
-
-        return attributesToBeModified;
-    }
-*/
-    /**
-     * Return the {@link Reference}s which need to be added or deleted to the {@link PSO}.
-     *
-     * A HasReference query is performed to determine if each {@link Reference} exists.
-     *
-     * @param pso the provisioned object
-     * @param modificationMode the modification mode, either add or delete
-     * @return the possibly empty list of references
-     */
-    /*
-    public List<Reference> processModificationReferences(PSO pso, ModificationMode modificationMode) {
-
-        // the references which need to be modified
-        List<Reference> references = new ArrayList<Reference>();
-
-        // references from the pso
-        Map<String, List<Reference>> referenceMap = PSPUtil.getReferences(pso.getCapabilityData());
-
-        // for every type of reference, i.e. the attribute name
-        for (String typeOfReference : referenceMap.keySet()) {
-            // for every reference
-            for (Reference reference : referenceMap.get(typeOfReference)) {
-
-                // perform a search to determine if the reference exists
-                try {
-                    boolean hasReference = psp.hasReference(pso.getPsoID(), reference);
-
-                    // if adding reference and reference does not exist, modify
-                    if (modificationMode.equals(ModificationMode.ADD) && !hasReference) {
-                        references.add(reference);
-                    }
-
-                    // if replacing reference and reference does not exist, modify
-                    if (modificationMode.equals(ModificationMode.REPLACE) && !hasReference) {
-                        references.add(reference);
-                    }
-
-                    // if deleting reference and reference exists, modify
-                    if (modificationMode.equals(ModificationMode.DELETE) && hasReference) {
-                        references.add(reference);
-                    }
-                } catch (PspNoSuchIdentifierException e) {
-                    if (modificationMode.equals(ModificationMode.DELETE)) {
-                        // ignore, must be already deleted, do not throw exception
-                    } else {
-                        throw new PspException(e);
-                    }
-                }
-
-            }
-        }
-
-        return references;
-    }
-*/
-    /**
      * Add a stem.
      *
      * @param consumer the change log consumer
@@ -993,9 +670,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     public void processStemAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem add.", name, toString(changeLogEntry));
-/*
-        executeSync(consumer, changeLogEntry, ChangeLogLabels.STEM_ADD.name);
-*/
+
     }
 
     /**
@@ -1112,10 +787,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         return user;
     }
 
-    private edu.internet2.middleware.grouper.Group fetchGrouperGroup(String groupId) {
-        edu.internet2.middleware.grouper.Group group = CacheManager.grouperGroups().get(groupId);
+    private edu.internet2.middleware.grouper.Group fetchGrouperGroup(String groupName) {
+        edu.internet2.middleware.grouper.Group group = CacheManager.grouperGroups().get(groupName);
         if (group == null) {
-            group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(false), groupId, false);
+            group = GroupFinder.findByName(GrouperSession.staticGrouperSession(false), groupName, false);
 
             if (group != null) {
                 CacheManager.grouperGroups().put(group);
@@ -1154,10 +829,70 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     private void createMember(Group group, User user, String role) throws IOException {
-        Member gMember = new Member();
+        final Member gMember = new Member();
         gMember.setEmail(user.getPrimaryEmail());
         gMember.setRole(role);
 
         GoogleAppsUtils.addGroupMember(directory, group, gMember);
+    }
+
+    private AttributeDefName getGoogleSyncAttribute() {
+        LOG.debug("Google Apps Consumer '{}' - etc:attribute:googleProvisioner:syncToGoogle attribute not found, creating it now", name);
+
+        AttributeDefName attrDefName = AttributeDefNameFinder.findByName("etc:attribute:googleProvisioner:syncToGoogle", false);
+
+        if (attrDefName == null) {
+            LOG.info("Google Apps Consumer '{}' - etc:attribute:googleProvisioner:syncToGoogle attribute not found, creating it now", name);
+            Stem googleStem = StemFinder.findByName(GrouperSession.staticGrouperSession(), "etc:attribute:googleProvisioner", false);
+
+            if (googleStem == null) {
+                LOG.info("Google Apps Consumer '{}' - etc:attribute:googleProvisioner stem not found, creating it now", name);
+                Stem etcAttributeStem = StemFinder.findByName(GrouperSession.staticGrouperSession(), "etc:attribute", false);
+                googleStem = etcAttributeStem.addChildStem("googleProvisioner", "googleProvisioner");
+            }
+
+            AttributeDef syncAttrDef = googleStem.addChildAttributeDef("syncToGoogleDef", AttributeDefType.attr);
+            syncAttrDef.setAssignToGroup(true);
+            syncAttrDef.setAssignToStem(true);
+            syncAttrDef.setMultiAssignable(true);
+            syncAttrDef.store();
+
+            attrDefName = googleStem.addChildAttributeDefName(syncAttrDef, "syncToGoogle", "syncToGoogle");
+            LOG.info("Google Apps Consumer '{}' - etc:attribute:googleProvisioner:syncToGoogle attribute name created", name);
+        }
+
+        return attrDefName;
+    }
+
+    private boolean shouldSyncGroup(edu.internet2.middleware.grouper.Group group) {
+        boolean result;
+
+        //TODO: Check Cache
+
+        if (group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0) {
+            result = true;
+        } else {
+            result = shouldSyncStem(group.getParentStem());
+        }
+
+        //TODO: Cache Result
+        return result;
+    }
+
+    private boolean shouldSyncStem(Stem stem) {
+        boolean result;
+
+        //TODO: Check Cache
+
+        if (stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0) {
+            result = true;
+        } else if (stem.isRootStem()) {
+            result = false;
+        } else {
+            result = shouldSyncStem(stem.getParentStem());
+        }
+
+        //TODO: Cache Result
+        return result;
     }
 }
