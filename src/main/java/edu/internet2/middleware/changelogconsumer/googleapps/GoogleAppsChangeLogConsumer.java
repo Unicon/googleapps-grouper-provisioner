@@ -22,9 +22,7 @@ import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -216,10 +214,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private boolean omitSyncResponses = false;
 
     /** Whether or not to provision users. */
-    private boolean provisionUser;
+    private boolean provisionUser = false;
 
     /** Whether or not to de-provision users. */
-    private boolean deprovisionUser;
+    private boolean deprovisionUser = false;
 
     /** Google Directory service*/
     private Directory directory;
@@ -346,12 +344,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing delete attribute assign value.", name,
                 toString(changeLogEntry));
-/*
-        List<ModifyRequest> modifyRequests =
-                consumer.processModification(consumer, changeLogEntry, ModificationMode.DELETE, ReturnData.DATA);
-
-        executeModifyRequests(consumer, changeLogEntry, modifyRequests);
-        */
     }
 
     /** {@inheritDoc} */
@@ -599,8 +591,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", name,
                 toString(changeLogEntry));
 
-        final Set<edu.internet2.middleware.grouper.Member> members = new HashSet<edu.internet2.middleware.grouper.Member>();
-
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
@@ -615,7 +605,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             //so we only need to handle PERSON events.
             if (subjectType == SubjectTypeEnum.PERSON) {
                 User user = fetchGooUser(GoogleAppsUtils.qualifyAddress(subjectId));
-                if (user == null && provisionUser == true) {
+                if (user == null && provisionUser) {
                     user = createUser(lookupSubject);
                 }
 

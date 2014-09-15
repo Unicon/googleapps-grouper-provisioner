@@ -88,6 +88,9 @@ public class GoogleAppsChangeLogConsumerTest {
         when(GrouperLoaderConfig.getPropertyString("changeLog.consumer.google.domain", true))
                 .thenReturn(googleDomain);
 
+        mockStatic(GrouperSession.class);
+       // when(GrouperSession.startS)
+
         mockStatic(SubjectFinder.class);
 
         try {
