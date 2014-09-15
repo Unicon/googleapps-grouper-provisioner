@@ -60,6 +60,12 @@ import edu.internet2.middleware.grouper.app.loader.GrouperLoaderConfig;
  **/
 public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
+    public static final String SYNC_TO_GOOGLE = "syncToGoogle";
+    public static final String GOOGLE_PROVISIONER = "googleProvisioner";
+    public static final String ATTRIBUTE_CONFIG_STEM = "etc:attribute";
+    public static final String GOOGLE_CONFIG_STEM = ATTRIBUTE_CONFIG_STEM + ":" + GOOGLE_PROVISIONER;
+    public static final String SYNC_TO_GOOGLE_NAME = GOOGLE_CONFIG_STEM + ":" + SYNC_TO_GOOGLE;
+
     /** Maps change log entry category and action (change log type) to methods. */
     enum EventType {
 
@@ -162,56 +168,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     /** Logger. */
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
 
-    /**
-     * Gets a simple string representation of the change log entry.
-     *
-     * @param changeLogEntry the change log entry
-     * @return the simple string representation of the change log entry
-     */
-    private static String toString(ChangeLogEntry changeLogEntry) {
-        ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
-        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
-        toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
-        toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
-        toStringBuilder.append("actionname", changeLogEntry.getChangeLogType().getActionName());
-        toStringBuilder.append("contextId", changeLogEntry.getContextId());
-        return toStringBuilder.toString();
-    }
-
-    /**
-     * Gets a deep string representation of the change log entry.
-     *
-     * @param changeLogEntry the change log entry
-     * @return the deep string representation of the change log entry
-     */
-    private static String toStringDeep(ChangeLogEntry changeLogEntry) {
-        ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
-        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
-        toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
-        toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
-        toStringBuilder.append("actionname", changeLogEntry.getChangeLogType().getActionName());
-        toStringBuilder.append("contextId", changeLogEntry.getContextId());
-
-        ChangeLogType changeLogType = changeLogEntry.getChangeLogType();
-
-        for (String label : changeLogType.labels()) {
-            toStringBuilder.append(label, changeLogEntry.retrieveValueForLabel(label));
-        }
-
-        return toStringBuilder.toString();
-    }
 
     /** The change log consumer name from the processor metadata. */
     private String name;
 
     /** Whether or not to retry a change log entry if an error occurs. */
     private boolean retryOnError = false;
-
-    /** Whether or not to omit diff responses in a bulk response. */
-    private boolean omitDiffResponses = false;
-
-    /** Whether or not to omit sync responses in a bulk response. */
-    private boolean omitSyncResponses = false;
 
     /** Whether or not to provision users. */
     private boolean provisionUser = false;
@@ -280,35 +242,24 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             directory = new Directory.Builder(httpTransport, JSON_FACTORY, googleCredential)
                     .setApplicationName("Google Apps Grouper Provisioner")
                     .build();
-
-            //TODO: make the cache settings properties
-            CacheManager.googleUsers().setCacheValidity(15);
-            populateGooUsersCache(directory);
-
-            CacheManager.googleGroups().setCacheValidity(15);
-            populateGooGroupsCache(directory);
-
-            CacheManager.grouperSubjects().setCacheValidity(15);
-            CacheManager.grouperSubjects().seed(CacheManager.googleUsers().size());
-
-            CacheManager.grouperGroups().setCacheValidity(15);
-            CacheManager.grouperGroups().seed(CacheManager.googleGroups().size());
-
         }
 
-            // retry on error
-            retryOnError = GrouperLoaderConfig.getPropertyBoolean("changeLog.consumer.psp.retryOnError", false);
-            LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
+        //TODO: make the cache settings properties
+        CacheManager.googleUsers().setCacheValidity(15);
+        populateGooUsersCache(directory);
 
-            // omit diff responses
-            omitDiffResponses =
-                    GrouperLoaderConfig.getPropertyBoolean("changeLog.psp.fullSync.omitDiffResponses", false);
-            LOG.debug("Google Apps Consumer - Setting omit diff responses to {}", omitDiffResponses);
+        CacheManager.googleGroups().setCacheValidity(15);
+        populateGooGroupsCache(directory);
 
-            // omit sync responses
-            omitSyncResponses =
-                    GrouperLoaderConfig.getPropertyBoolean("changeLog.psp.fullSync.omitSyncResponses", false);
-            LOG.debug("Google Apps Consumer - Setting omit sync responses to {}", omitSyncResponses);
+        CacheManager.grouperSubjects().setCacheValidity(15);
+        CacheManager.grouperSubjects().seed(CacheManager.googleUsers().size());
+
+        CacheManager.grouperGroups().setCacheValidity(15);
+        CacheManager.grouperGroups().seed(CacheManager.googleGroups().size());
+
+        // retry on error
+        retryOnError = GrouperLoaderConfig.getPropertyBoolean("changeLog.consumer.google.retryOnError", false);
+        LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
     }
 
     /**
@@ -318,32 +269,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     public boolean isRetryOnError() {
         return retryOnError;
-    }
-
-    /**
-     * Add an attribute value.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     */
-
-    protected void processAttributeAssignValueAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
-
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", name,
-                toString(changeLogEntry));
-
-    }
-
-    /**
-     * Delete an attribute value.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     */
-    protected void processAttributeAssignValueDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry)  {
-
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing delete attribute assign value.", name,
-                toString(changeLogEntry));
     }
 
     /** {@inheritDoc} */
@@ -492,6 +417,33 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
+     * Add an attribute value.
+     *
+     * @param consumer the change log consumer
+     * @param changeLogEntry the change log entry
+     */
+
+    protected void processAttributeAssignValueAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", name,
+                toString(changeLogEntry));
+
+    }
+
+    /**
+     * Delete an attribute value.
+     *
+     * @param consumer the change log consumer
+     * @param changeLogEntry the change log entry
+     */
+    protected void processAttributeAssignValueDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry)  {
+
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing delete attribute assign value.", name,
+                toString(changeLogEntry));
+    }
+
+
+    /**
      * Add a group.
      *
      * @param consumer the change log consumer
@@ -563,11 +515,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         try {
             Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupName, true));
 
-            if (propertyChanged.equalsIgnoreCase("name")) {
+            if (propertyChanged.equalsIgnoreCase("displayExtension")) {
                 group.setName(propertyNewValue);
 
             } else if (propertyChanged.equalsIgnoreCase("description")) {
                 group.setDescription(propertyNewValue);
+
             } else {
                 LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Unmapped group property updated {}.",
                         Arrays.asList(name, toString(changeLogEntry)), propertyChanged);
@@ -618,7 +571,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", Arrays.asList(name,
                     toString(changeLogEntry), e));
         }
-
     }
 
     /**
@@ -686,27 +638,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem update.", name, toString(changeLogEntry));
 
-        processUpdate(consumer, changeLogEntry, ChangeLogLabels.STEM_UPDATE.name);
-    }
-
-    /**
-     * Process an object update. If the object should be renamed, attempt to rename, otherwise attempt to modify.
-     *
-     * If the attempt to rename the object fails with the {@link //ERROR_SUBTREE_RENAME_NOT_SUPPORTED} error, then attempt
-     * to sync the object.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     * @param principalNameLabel the change log label used to determine the sync request identifier
-     */
-    public void processUpdate(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry,
-                              ChangeLogLabel principalNameLabel) {
-
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing object update.", name, toString(changeLogEntry));
-/*
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing object update was successful.", name,
-                toString(changeLogEntry));
-*/
     }
 
     /**
@@ -827,28 +758,28 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     private AttributeDefName getGoogleSyncAttribute() {
-        LOG.debug("Google Apps Consumer '{}' - etc:attribute:googleProvisioner:syncToGoogle attribute not found, creating it now", name);
+        LOG.debug("Google Apps Consumer '{}' - {} attribute not found, creating it now", name, SYNC_TO_GOOGLE_NAME);
 
-        AttributeDefName attrDefName = AttributeDefNameFinder.findByName("etc:attribute:googleProvisioner:syncToGoogle", false);
+        AttributeDefName attrDefName = AttributeDefNameFinder.findByName(SYNC_TO_GOOGLE_NAME, false);
 
         if (attrDefName == null) {
-            LOG.info("Google Apps Consumer '{}' - etc:attribute:googleProvisioner:syncToGoogle attribute not found, creating it now", name);
-            Stem googleStem = StemFinder.findByName(GrouperSession.staticGrouperSession(), "etc:attribute:googleProvisioner", false);
+            LOG.info("Google Apps Consumer '{}' - {} attribute not found, creating it now", name, SYNC_TO_GOOGLE_NAME);
+            Stem googleStem = StemFinder.findByName(GrouperSession.staticGrouperSession(), GOOGLE_CONFIG_STEM, false);
 
             if (googleStem == null) {
-                LOG.info("Google Apps Consumer '{}' - etc:attribute:googleProvisioner stem not found, creating it now", name);
-                Stem etcAttributeStem = StemFinder.findByName(GrouperSession.staticGrouperSession(), "etc:attribute", false);
-                googleStem = etcAttributeStem.addChildStem("googleProvisioner", "googleProvisioner");
+                LOG.info("Google Apps Consumer '{}' - {} stem not found, creating it now", name, GOOGLE_CONFIG_STEM);
+                Stem etcAttributeStem = StemFinder.findByName(GrouperSession.staticGrouperSession(), ATTRIBUTE_CONFIG_STEM, false);
+                googleStem = etcAttributeStem.addChildStem(GOOGLE_PROVISIONER, GOOGLE_PROVISIONER);
             }
 
-            AttributeDef syncAttrDef = googleStem.addChildAttributeDef("syncToGoogleDef", AttributeDefType.attr);
+            AttributeDef syncAttrDef = googleStem.addChildAttributeDef(SYNC_TO_GOOGLE + "Def", AttributeDefType.attr);
             syncAttrDef.setAssignToGroup(true);
             syncAttrDef.setAssignToStem(true);
             syncAttrDef.setMultiAssignable(true);
             syncAttrDef.store();
 
-            attrDefName = googleStem.addChildAttributeDefName(syncAttrDef, "syncToGoogle", "syncToGoogle");
-            LOG.info("Google Apps Consumer '{}' - etc:attribute:googleProvisioner:syncToGoogle attribute name created", name);
+            attrDefName = googleStem.addChildAttributeDefName(syncAttrDef, SYNC_TO_GOOGLE, SYNC_TO_GOOGLE);
+            LOG.info("Google Apps Consumer '{}' - {} attribute name created", name, SYNC_TO_GOOGLE_NAME);
         }
 
         return attrDefName;
@@ -885,4 +816,44 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         //TODO: Cache Result
         return result;
     }
+
+    /**
+     * Gets a simple string representation of the change log entry.
+     *
+     * @param changeLogEntry the change log entry
+     * @return the simple string representation of the change log entry
+     */
+    private static String toString(ChangeLogEntry changeLogEntry) {
+        ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
+        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
+        toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
+        toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
+        toStringBuilder.append("actionname", changeLogEntry.getChangeLogType().getActionName());
+        toStringBuilder.append("contextId", changeLogEntry.getContextId());
+        return toStringBuilder.toString();
+    }
+
+    /**
+     * Gets a deep string representation of the change log entry.
+     *
+     * @param changeLogEntry the change log entry
+     * @return the deep string representation of the change log entry
+     */
+    private static String toStringDeep(ChangeLogEntry changeLogEntry) {
+        ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
+        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
+        toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
+        toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
+        toStringBuilder.append("actionname", changeLogEntry.getChangeLogType().getActionName());
+        toStringBuilder.append("contextId", changeLogEntry.getContextId());
+
+        ChangeLogType changeLogType = changeLogEntry.getChangeLogType();
+
+        for (String label : changeLogType.labels()) {
+            toStringBuilder.append(label, changeLogEntry.retrieveValueForLabel(label));
+        }
+
+        return toStringBuilder.toString();
+    }
+
 }
