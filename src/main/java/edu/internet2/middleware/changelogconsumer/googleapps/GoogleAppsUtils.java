@@ -460,10 +460,10 @@ public class GoogleAppsUtils {
     }
 
     public static String qualifyAddress(String mailbox, boolean escapeCharacter) {
-        if (escapeCharacter == true) {
-            return String.format("%s@%s", mailbox, googleDomain);
+        if (escapeCharacter) {
+            return String.format("%s@%s", mailbox.replace(":", "-"), googleDomain);
         } else {
-            return String.format("%s@%s", mailbox.replace(" ", ""), googleDomain);
+            return String.format("%s@%s", mailbox, googleDomain);
         }
 
     }

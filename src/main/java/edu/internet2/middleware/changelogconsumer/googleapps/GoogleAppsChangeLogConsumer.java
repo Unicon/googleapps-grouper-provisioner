@@ -176,10 +176,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private boolean retryOnError = false;
 
     /** Whether or not to provision users. */
-    private boolean provisionUser = false;
+    private boolean provisionUsers = false;
 
     /** Whether or not to de-provision users. */
-    private boolean deprovisionUser = false;
+    private boolean deprovisionUsers = false;
 
     /** Google Directory service*/
     private Directory directory;
@@ -526,7 +526,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                         Arrays.asList(name, toString(changeLogEntry)), propertyChanged);
             }
 
-            CacheManager.googleGroups().put(GoogleAppsUtils.updateGroup(directory, groupName, group));
+            CacheManager.googleGroups().put(GoogleAppsUtils.updateGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, true), group));
         } catch (IOException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing group update.", name, toString(changeLogEntry));
         }
@@ -558,7 +558,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             //so we only need to handle PERSON events.
             if (subjectType == SubjectTypeEnum.PERSON) {
                 User user = fetchGooUser(GoogleAppsUtils.qualifyAddress(subjectId));
-                if (user == null && provisionUser) {
+                if (user == null && provisionUsers) {
                     user = createUser(lookupSubject);
                 }
 
@@ -665,6 +665,16 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
     }
 
+    /**
+     * Indicates if users should be provisioned if they aren't found in Google.
+     *
+     * @param provisionUsers If true, create missing users in Google
+     */
+    public void setProvisionUsers(boolean provisionUsers) {
+        this.provisionUsers = provisionUsers;
+    }
+
+
     private void populateGooGroupsCache(Directory directory) {
         LOG.debug("Google Apps Consumer '{}' - Populating the userCache.", name);
 
@@ -738,10 +748,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         User newUser = new User();
         newUser.setName(new UserName());
         //TODO: Parameterize the attributes
-        newUser.setPrimaryEmail(subject.getAttributeValue("mail"));
-        newUser.getName().setGivenName(subject.getAttributeValue("givenName"));
-        newUser.getName().setFamilyName(subject.getAttributeValue("sn"));
-        newUser.getName().setFullName(subject.getAttributeValue("displayName"));
+        String email = subject.getAttributeValue("email");
+        newUser.setPrimaryEmail(email != null? email : GoogleAppsUtils.qualifyAddress(subject.getId()));
+        //TODO: Configure Subject API to individual name components
+        newUser.getName().setFamilyName(subject.getName().split(" ")[1]);
+        newUser.getName().setGivenName(subject.getName().split(" ")[0]);
+        newUser.getName().setFullName(subject.getName());
         newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
 
         newUser = GoogleAppsUtils.addUser(directory, newUser);

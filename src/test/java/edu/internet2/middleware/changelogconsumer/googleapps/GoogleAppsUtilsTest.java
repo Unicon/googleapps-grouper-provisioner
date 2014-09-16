@@ -89,6 +89,16 @@ public class GoogleAppsUtilsTest {
                 .build();
     }
 
+    @After
+    public void teardown() throws GeneralSecurityException, IOException {
+        //Give Google a half a second to catch up since we create and destroy the same users and groups over and over
+        try {
+            Thread.sleep(500L);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
     @AfterClass
     public static void teardownClass() throws IOException {
         GoogleAppsUtils.removeGroup(directory, TEST_GROUP);
