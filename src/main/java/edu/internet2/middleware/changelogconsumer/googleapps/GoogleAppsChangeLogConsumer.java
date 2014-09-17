@@ -125,14 +125,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             }
         },
 
-        /** Process the add stem change log entry type. */
-        stem__addStem {
-            /** {@inheritDoc} */
-            public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
-                consumer.processStemAdd(consumer, changeLogEntry);
-            }
-        },
-
         /** Process the delete stem change log entry type. */
         stem__deleteStem {
             /** {@inheritDoc} */
@@ -220,19 +212,19 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         if (directory == null) {
             final String serviceAccountPKCS12FilePath =
-                    GrouperLoaderConfig.getPropertyString("changeLog.consumer.google.serviceAccountPKCS12FilePath", true);
+                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired("changeLog.consumer.google.serviceAccountPKCS12FilePath");
             LOG.debug("Google Apps Consumer - Setting Google serviceAccountPKCS12FilePath to {}", serviceAccountPKCS12FilePath);
 
             final String serviceAccountEmail =
-                    GrouperLoaderConfig.getPropertyString("changeLog.consumer.google.serviceAccountEmail", true);
+                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired("changeLog.consumer.google.serviceAccountEmail");
             LOG.debug("Google Apps Consumer - Setting Google serviceAccountEmail on error to {}", serviceAccountEmail);
 
             final String serviceAccountUser =
-                    GrouperLoaderConfig.getPropertyString("changeLog.consumer.google.serviceAccountUser", true);
+                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired("changeLog.consumer.google.serviceAccountUser");
             LOG.debug("Google Apps Consumer - Setting Google serviceAccountUser to {}", serviceAccountUser);
 
             GoogleAppsUtils.googleDomain =
-                    GrouperLoaderConfig.getPropertyString("changeLog.consumer.google.domain", true);
+                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired("changeLog.consumer.google.domain");
             LOG.debug("Google Apps Consumer - Setting Google domain to {}", GoogleAppsUtils.googleDomain);
 
 
@@ -258,7 +250,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         CacheManager.grouperGroups().seed(CacheManager.googleGroups().size());
 
         // retry on error
-        retryOnError = GrouperLoaderConfig.getPropertyBoolean("changeLog.consumer.google.retryOnError", false);
+        retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean("changeLog.consumer.google.retryOnError");
         LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
     }
 
@@ -484,9 +476,15 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", name, toString(changeLogEntry));
 
+
         //TODO: to archive or not to archive... that is the question!
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
+
+        edu.internet2.middleware.grouper.Group  grouperGroup = fetchGrouperGroup(groupName);
+        if (!shouldSyncGroup(grouperGroup)) {
+            return;
+        }
 
         try {
             String groupKey = GoogleAppsUtils.qualifyAddress(groupName, true);
@@ -512,6 +510,17 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String propertyOldValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue);
         final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue);
 
+        if (propertyChanged.equalsIgnoreCase("name")) {
+            //TODO: Stem Change
+            return;
+        }
+
+
+        edu.internet2.middleware.grouper.Group  grouperGroup = fetchGrouperGroup(groupName);
+        if (!shouldSyncGroup(grouperGroup)) {
+            return;
+        }
+
         try {
             Group group = fetchGooGroup(GoogleAppsUtils.qualifyAddress(groupName, true));
 
@@ -527,6 +536,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             }
 
             CacheManager.googleGroups().put(GoogleAppsUtils.updateGroup(directory, GoogleAppsUtils.qualifyAddress(groupName, true), group));
+
         } catch (IOException e) {
             LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing group update.", name, toString(changeLogEntry));
         }
@@ -604,28 +614,18 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Add a stem.
+     * Delete a stem, but we generally don't care since the stem has to be empty before it can be deleted.
      *
      * @param consumer the change log consumer
      * @param changeLogEntry the change log entry
      */
-    public void processStemAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
-
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem add.", name, toString(changeLogEntry));
-
-    }
-
-    /**
-     * Delete a stem.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     */
-    public void processStemDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+    protected void processStemDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem delete.", name, toString(changeLogEntry));
 
+        final String stemName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_DELETE.name);
 
+        //TODO: Remove stem from cache
     }
 
     /**
@@ -634,9 +634,14 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param consumer the change log consumer
      * @param changeLogEntry the change log entry
      */
-    public void processStemUpdate(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+    protected void processStemUpdate(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem update.", name, toString(changeLogEntry));
+
+        final String stemName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.name);
+        final String propertyChanged = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.propertyChanged);
+        final String propertyOldValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.propertyOldValue);
+        final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.propertyNewValue);
 
     }
 
@@ -645,7 +650,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      *
      * @param retryOnError If true, retry a change log entry if an error occurs.
      */
-    public void setRetryOnError(boolean retryOnError) {
+    protected void setRetryOnError(boolean retryOnError) {
         this.retryOnError = retryOnError;
     }
 
@@ -745,12 +750,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     private User createUser(Subject subject) throws IOException {
+        final String email = subject.getAttributeValue("email");
+
         User newUser = new User();
         newUser.setName(new UserName());
-        //TODO: Parameterize the attributes
-        String email = subject.getAttributeValue("email");
         newUser.setPrimaryEmail(email != null? email : GoogleAppsUtils.qualifyAddress(subject.getId()));
-        //TODO: Configure Subject API to individual name components
+        //TODO: Configure Subject API to use individual name components
         newUser.getName().setFamilyName(subject.getName().split(" ")[1]);
         newUser.getName().setGivenName(subject.getName().split(" ")[0]);
         newUser.getName().setFullName(subject.getName());
