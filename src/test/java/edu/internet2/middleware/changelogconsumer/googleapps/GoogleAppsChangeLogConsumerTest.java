@@ -23,16 +23,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.model.Group;
 import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import com.google.api.services.admin.directory.model.UserName;
-import edu.internet2.middleware.changelogconsumer.googleapps.cache.CacheManager;
-import edu.internet2.middleware.grouper.GrouperSession;
-import edu.internet2.middleware.grouper.SubjectFinder;
-import edu.internet2.middleware.grouper.app.loader.GrouperLoaderConfig;
+import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
 import edu.internet2.middleware.grouper.changeLog.*;
 import edu.internet2.middleware.subject.Subject;
 import java.io.IOException;
@@ -50,7 +52,6 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 @RunWith(PowerMockRunner.class)
-//@PowerMockIgnore({"javax.net.ssl.*", "org.apache.log4j.*", "javax.xml.parsers.*", "org.apache.xerces.jaxp.*",  "org.xml.*", "net.sf.ehcache.*"})
 @PowerMockIgnore({"javax.net.ssl.*", "org.apache.log4j.*"})
 @PrepareForTest(value = { })
 public class GoogleAppsChangeLogConsumerTest {
@@ -62,47 +63,75 @@ public class GoogleAppsChangeLogConsumerTest {
     private static final String sourceId = "jdbc";
 
     private ChangeLogProcessorMetadata metadata;
+    private static AddressFormatter addressFormatter = new AddressFormatter();
 
     private static GoogleAppsChangeLogConsumer consumer;
     private static String googleDomain;
 
+    /** Global instance of the HTTP transport. */
+    private static HttpTransport httpTransport;
+
+    /** Global instance of the JSON factory. */
+    private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+
+    private static Directory directory = null;
 
     @BeforeClass
     public static void setupClass() {
+
+        consumer = new GoogleAppsChangeLogConsumer();
+
+        Properties props = new Properties();
+
+        InputStream is = ClassLoader.getSystemResourceAsStream("unit-test.properties");
         try {
-            consumer = new GoogleAppsChangeLogConsumer();
-        } catch (GeneralSecurityException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+            props.load(is);
+
+            addressFormatter
+                    .setDomain(props.getProperty("DOMAIN"))
+                    .setGroupIdentifierExpression(props.getProperty("GROUP_IDENTIFIER_EXPRESSION"))
+                    .setSubjectIdentifierExpression(props.getProperty("SUBJECT_IDENTIFIER_EXPRESSION"));
+
+            httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+
+            GoogleCredential googleCredential = null;
+                 googleCredential = GoogleAppsSdkUtils.getGoogleCredential(props.getProperty("SERVICE_ACCOUNT_EMAIL"),
+                        props.getProperty("SERVICE_ACCOUNT_PKCS_12_FILE_PATH"), props.getProperty("SERVICE_ACCOUNT_USER"),
+                        httpTransport, JSON_FACTORY);
+
+            directory = new Directory.Builder(httpTransport, JSON_FACTORY, googleCredential)
+                    .setApplicationName("Google Apps Grouper Provisioner")
+                    .build();
+            
+        } catch (Exception e) {
+            System.out.println("unit-test.properties configuration not found. Try again! Love, Grumpy Cat");
         }
+        
+        
     }
 
     @Before
     public void setup() throws GeneralSecurityException, IOException {
         metadata = mock(ChangeLogProcessorMetadata.class);
-        when(metadata.getConsumerName()).thenReturn("UnitTestConsumer");
-
+        when(metadata.getConsumerName()).thenReturn("google");
     }
 
     @After
-    public void teardown() throws GeneralSecurityException, IOException {
+    public void tearDown() throws GeneralSecurityException, IOException {
         try {
-            GoogleAppsUtils.removeGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true));
+            GoogleAppsSdkUtils.removeGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
         } catch (IOException e) {
 
         }
 
         try {
-            GoogleAppsUtils.removeUser(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(subjectId, true));
+            GoogleAppsSdkUtils.removeUser(directory, addressFormatter.qualifyGroupAddress(subjectId));
         } catch (IOException e) {
 
         }
 
-        CacheManager.googleGroups().clear();
-        CacheManager.googleUsers().clear();
-        CacheManager.grouperGroups().clear();
-        CacheManager.grouperSubjects().clear();
+        GoogleCacheManager.googleGroups().clear();
+        GoogleCacheManager.googleUsers().clear();
 
         //Give Google a second to catch up since we create and destroy the same users and groups over and over
         try {
@@ -122,7 +151,7 @@ public class GoogleAppsChangeLogConsumerTest {
         ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        Group group = GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true));
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(group);
         assertTrue(group.getName().equalsIgnoreCase(groupDisplayName));
     }
@@ -139,7 +168,7 @@ public class GoogleAppsChangeLogConsumerTest {
         ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        assertTrue(GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true)) == null);
+        assertTrue(GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName)) == null);
     }
 
     @Test
@@ -159,7 +188,7 @@ public class GoogleAppsChangeLogConsumerTest {
         ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        Group group = GoogleAppsUtils.retrieveGroup(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true));
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(group);
         assertEquals(NEW_TEST, group.getName());
 
@@ -173,7 +202,7 @@ public class GoogleAppsChangeLogConsumerTest {
     public void testProcessGroupMemberAddExistingUser() throws GeneralSecurityException, IOException {
         //User already exists in Google
         createTestGroup(groupDisplayName, groupName);
-        createTestUser(GoogleAppsUtils.qualifyAddress(subjectId), "Fiona", "Windsor");
+        createTestUser(addressFormatter.qualifySubjectAddress(subjectId), "Fiona", "Windsor");
 
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "addMembership", ""));
@@ -186,10 +215,10 @@ public class GoogleAppsChangeLogConsumerTest {
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true));
+        List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(members);
         assertTrue(members.size() == 1);
-        assertTrue(members.get(0).getEmail().equalsIgnoreCase(GoogleAppsUtils.qualifyAddress(subjectId)));
+        assertTrue(members.get(0).getEmail().equalsIgnoreCase(addressFormatter.qualifySubjectAddress(subjectId)));
     }
 
     @Test
@@ -209,7 +238,7 @@ public class GoogleAppsChangeLogConsumerTest {
         consumer.setProvisionUsers(false);
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true));
+        List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(members);
         assertTrue(members.size() == 0);
     }
@@ -231,22 +260,22 @@ public class GoogleAppsChangeLogConsumerTest {
         consumer.setProvisionUsers(true);
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true));
+        List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(members);
         assertTrue(members.size() == 1);
-        assertTrue(members.get(0).getEmail().equalsIgnoreCase(GoogleAppsUtils.qualifyAddress(subjectId)));
+        assertTrue(members.get(0).getEmail().equalsIgnoreCase(addressFormatter.qualifySubjectAddress(subjectId)));
     }
 
     @Test
     public void testProcessGroupMemberRemove() throws GeneralSecurityException, IOException {
         //User already exists in Google
         Group group = createTestGroup(groupDisplayName, groupName);
-        createTestUser(GoogleAppsUtils.qualifyAddress(subjectId), "Fiona", "Windsor");
+        createTestUser(addressFormatter.qualifySubjectAddress(subjectId), "Fiona", "Windsor");
 
         Member member = new Member()
-                .setEmail(GoogleAppsUtils.qualifyAddress(subjectId))
+                .setEmail(addressFormatter.qualifySubjectAddress(subjectId))
                 .setRole("MEMBER");
-        GoogleAppsUtils.addGroupMember(consumer.getDirectory(), group, member);
+        GoogleAppsSdkUtils.addGroupMember(directory, group, member);
 
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "deleteMembership", ""));
@@ -259,7 +288,7 @@ public class GoogleAppsChangeLogConsumerTest {
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(consumer.getDirectory(), GoogleAppsUtils.qualifyAddress(groupName, true));
+        List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(members);
         assertTrue(members.size() == 0);
     }
@@ -317,8 +346,8 @@ public class GoogleAppsChangeLogConsumerTest {
     private Group createTestGroup(String name, String mailbox) throws IOException {
         Group group = new Group();
         group.setName(name);
-        group.setEmail(GoogleAppsUtils.qualifyAddress(mailbox, true));
-        return GoogleAppsUtils.addGroup(consumer.getDirectory(), group);
+        group.setEmail(addressFormatter.qualifyGroupAddress(mailbox));
+        return GoogleAppsSdkUtils.addGroup(directory, group);
     }
 
     private User createTestUser(String email, String givenName, String surname) throws IOException {
@@ -328,7 +357,7 @@ public class GoogleAppsChangeLogConsumerTest {
         user.getName().setFamilyName(surname);
         user.getName().setGivenName(givenName);
         user.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
-        return GoogleAppsUtils.addUser(consumer.getDirectory(), user);
+        return GoogleAppsSdkUtils.addUser(directory, user);
     }
 
     private Subject getTestUserSubject() {
@@ -336,7 +365,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(subject.getAttributeValue("givenName")).thenReturn("testgn2");
         when(subject.getAttributeValue("sn")).thenReturn("testfn2");
         when(subject.getAttributeValue("displayName")).thenReturn("testgn2, testfn2");
-        when(subject.getAttributeValue("mail")).thenReturn(GoogleAppsUtils.qualifyAddress(subjectId));
+        when(subject.getAttributeValue("mail")).thenReturn(addressFormatter.qualifySubjectAddress(subjectId));
         when(subject.getType()).thenReturn(SubjectTypeEnum.PERSON);
         return subject;
     }
@@ -346,7 +375,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(subject.getAttributeValue("givenName")).thenReturn("testgn2");
         when(subject.getAttributeValue("sn")).thenReturn("testfn2");
         when(subject.getAttributeValue("displayName")).thenReturn("testgn2, testfn2");
-        when(subject.getAttributeValue("mail")).thenReturn(GoogleAppsUtils.qualifyAddress(subjectId));
+        when(subject.getAttributeValue("mail")).thenReturn(addressFormatter.qualifySubjectAddress(subjectId));
         when(subject.getType()).thenReturn(SubjectTypeEnum.GROUP);
         return subject;
     }

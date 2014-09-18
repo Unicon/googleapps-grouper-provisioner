@@ -41,7 +41,7 @@ import static org.junit.Assert.assertEquals;
 /**
  * These tests are intended to be run sequentially. At some point they maybe set up to run independently.
  */
-public class GoogleAppsUtilsTest {
+public class GoogleAppsSdkUtilsTest {
     private static String TEST_USER;
     private static String TEST_GROUP;
 
@@ -58,6 +58,7 @@ public class GoogleAppsUtilsTest {
     private static GoogleCredential googleCredential = null;
     private static Directory directory = null;
 
+
     @BeforeClass
     public static void setupClass() {
         Properties props = new Properties();
@@ -73,7 +74,7 @@ public class GoogleAppsUtilsTest {
             SERVICE_ACCOUNT_USER = props.getProperty("SERVICE_ACCOUNT_USER");
         }
         catch (IOException e) {
-            System.out.println("test.properties configuration not found. Try again! Love, Grumpy Cat");
+            System.out.println("unit-test.properties configuration not found. Try again! Love, Grumpy Cat");
         }
     }
 
@@ -82,7 +83,7 @@ public class GoogleAppsUtilsTest {
         httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
         if (googleCredential == null) {
-            googleCredential = GoogleAppsUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
+            googleCredential = GoogleAppsSdkUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
                     SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_ACCOUNT_USER,
                     httpTransport, JSON_FACTORY);
         }
@@ -104,15 +105,15 @@ public class GoogleAppsUtilsTest {
 
     @AfterClass
     public static void teardownClass() throws IOException {
-        GoogleAppsUtils.removeGroup(directory, TEST_GROUP);
-        GoogleAppsUtils.removeUser(directory, TEST_USER);
+        GoogleAppsSdkUtils.removeGroup(directory, TEST_GROUP);
+        GoogleAppsSdkUtils.removeUser(directory, TEST_USER);
     }
 
     @Test
     public void testGetGoogleCredential() throws Exception {
         httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
-        GoogleCredential googleCredential = GoogleAppsUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
+        GoogleCredential googleCredential = GoogleAppsSdkUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
                 SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_ACCOUNT_USER,
                 httpTransport, JSON_FACTORY);
 
@@ -132,7 +133,7 @@ public class GoogleAppsUtilsTest {
                 .setPrimaryEmail(TEST_USER)
                 .setPassword(new BigInteger(130, new SecureRandom()).toString(32));
 
-        User currentUser = GoogleAppsUtils.addUser(directory, user);
+        User currentUser = GoogleAppsSdkUtils.addUser(directory, user);
         assertEquals("Boom", currentUser.getName().getGivenName(), user.getName().getGivenName());
 
     }
@@ -143,44 +144,44 @@ public class GoogleAppsUtilsTest {
         group.setName("Test Group");
         group.setEmail(TEST_GROUP);
 
-        Group currentGroup = GoogleAppsUtils.addGroup(directory, group);
+        Group currentGroup = GoogleAppsSdkUtils.addGroup(directory, group);
         assertEquals("Boom", currentGroup.getName(), group.getName());
 
     }
 
     @Test
     public void testRetrieveAllUsers() throws GeneralSecurityException, IOException {
-        List<User> allUsers = GoogleAppsUtils.retrieveAllUsers(directory);
+        List<User> allUsers = GoogleAppsSdkUtils.retrieveAllUsers(directory);
         assertTrue(allUsers.size() > 0);
     }
 
     @Test
     public void testRetrieveUser() throws GeneralSecurityException, IOException {
-        User user = GoogleAppsUtils.retrieveUser(directory, TEST_USER);
+        User user = GoogleAppsSdkUtils.retrieveUser(directory, TEST_USER);
         assertTrue(user.getName().getGivenName().equalsIgnoreCase("Test"));
     }
 
     @Test
     public void testRetrieveMissingUser() throws GeneralSecurityException, IOException {
-        User user = GoogleAppsUtils.retrieveUser(directory, "missing-" + TEST_USER);
+        User user = GoogleAppsSdkUtils.retrieveUser(directory, "missing-" + TEST_USER);
         assertTrue(user == null);
     }
 
     @Test
     public void testRetrieveAllGroups() throws GeneralSecurityException, IOException {
-        List<Group> allGroups = GoogleAppsUtils.retrieveAllGroups(directory);
+        List<Group> allGroups = GoogleAppsSdkUtils.retrieveAllGroups(directory);
         assertTrue(allGroups.size() > 0);
     }
 
     @Test
     public void testRetrieveGroup() throws GeneralSecurityException, IOException {
-        Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP);
         assertTrue(group.getName().equalsIgnoreCase("Test Group"));
     }
 
     @Test
     public void testRetrieveMissingGroup() throws GeneralSecurityException, IOException {
-        Group group = GoogleAppsUtils.retrieveGroup(directory, "missing-" + TEST_GROUP);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, "missing-" + TEST_GROUP);
         assertTrue(group == null);
     }
 
@@ -190,53 +191,43 @@ public class GoogleAppsUtilsTest {
         member.setRole("MEMBER");
         member.setEmail(TEST_USER);
 
-        Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP);
 
-        Member currentMember = GoogleAppsUtils.addGroupMember(directory, group, member);
+        Member currentMember = GoogleAppsSdkUtils.addGroupMember(directory, group, member);
         assertEquals("Boom", currentMember.getEmail(), member.getEmail());
     }
 
     @Test
     public void testRetrieveGroupMembers() throws GeneralSecurityException, IOException {
-        List<Member> members = GoogleAppsUtils.retrieveGroupMembers(directory, TEST_GROUP);
+        List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, TEST_GROUP);
         assertTrue(members.size() > 0);
     }
 
     @Test
     public void testRemoveMember() throws GeneralSecurityException, IOException {
-        GoogleAppsUtils.removeGroupMember(directory, TEST_GROUP, TEST_USER);
-        assertTrue(GoogleAppsUtils.retrieveGroupMembers(directory, TEST_GROUP).size() == 0);
+        GoogleAppsSdkUtils.removeGroupMember(directory, TEST_GROUP, TEST_USER);
+        assertTrue(GoogleAppsSdkUtils.retrieveGroupMembers(directory, TEST_GROUP).size() == 0);
     }
 
     @Test
     public void testUpdateGroup() throws GeneralSecurityException, IOException {
-        Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP);
         group.setName("test");
 
-        Group result = GoogleAppsUtils.updateGroup(directory, TEST_GROUP, group);
+        Group result = GoogleAppsSdkUtils.updateGroup(directory, TEST_GROUP, group);
         assertEquals("test", result.getName());
-        assertEquals("test", GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP).getName());
+        assertEquals("test", GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP).getName());
     }
 
     @Test
     public void testRemoveGroup() throws GeneralSecurityException, IOException {
-        GoogleAppsUtils.removeGroup(directory, TEST_GROUP);
-        assertTrue(GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP) == null);
+        GoogleAppsSdkUtils.removeGroup(directory, TEST_GROUP);
+        assertTrue(GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP) == null);
     }
 
     @Test
     public void testRemoveUser() throws GeneralSecurityException, IOException {
-        GoogleAppsUtils.removeUser(directory, TEST_USER);
-        assertTrue(GoogleAppsUtils.retrieveUser(directory, TEST_USER) == null);
-    }
-
-    @Test
-    public void testQualifyAddress() {
-        GoogleAppsUtils.googleDomain = "test.edu";
-        GoogleAppsUtils.mailboxIdentifier = "crs-${groupName.replace(\"abc1:\", \"\")}-test";
-
-        String expected = "crs-abc2-test@test.edu";
-        String result = GoogleAppsUtils.qualifyAddress("abc1:abc2", true);
-        assertEquals(expected, result);
+        GoogleAppsSdkUtils.removeUser(directory, TEST_USER);
+        assertTrue(GoogleAppsSdkUtils.retrieveUser(directory, TEST_USER) == null);
     }
 }

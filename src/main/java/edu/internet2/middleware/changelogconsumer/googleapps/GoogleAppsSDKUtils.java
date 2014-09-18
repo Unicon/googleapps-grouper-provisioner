@@ -26,10 +26,6 @@ import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.DirectoryRequest;
 import com.google.api.services.admin.directory.DirectoryScopes;
 import com.google.api.services.admin.directory.model.*;
-import org.apache.commons.jexl2.JexlContext;
-import org.apache.commons.jexl2.JexlEngine;
-import org.apache.commons.jexl2.MapContext;
-import org.apache.commons.jexl2.UnifiedJEXL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,25 +38,18 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * GoogleAppsUtils is a helper class that interfaces with the Google SDK Admin API and handles exponential back-off.
+ * GoogleAppsSdkUtils is a helper class that interfaces with the Google SDK Admin API and handles exponential back-off.
  * see https://developers.google.com/admin-sdk/directory/v1/guides/delegation
  *
  * @author John Gasper, Unicon
  */
-public class GoogleAppsUtils {
+public class GoogleAppsSdkUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
-
-    public static String googleDomain = "";
-    public static String mailboxIdentifier = "";
 
     private final static String[] scope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
 
     private final static Random randomGenerator = new Random();
-
-    private final static JexlEngine jexl = new JexlEngine();
-    private final static UnifiedJEXL ujexl = new UnifiedJEXL(jexl);
-    private static UnifiedJEXL.Expression mailboxExpr = null;
 
     /**
      * getGoogleCredential creates a credential object that authenticates the REST API calls.
@@ -460,29 +449,6 @@ public class GoogleAppsUtils {
             } else {
                 return execute(++interval, request);
             }
-        }
-
-    }
-
-
-    public static String qualifyAddress(String group) {
-        return qualifyAddress(group, false);
-    }
-
-    public static String qualifyAddress(String group, boolean escapeCharacter) {
-        if (mailboxExpr == null) {
-            mailboxExpr = ujexl.parse(mailboxIdentifier);
-        }
-
-        JexlContext context = new MapContext();
-        context.set("groupName", group);
-
-        String mailbox = mailboxExpr.evaluate(context).toString();
-
-        if (escapeCharacter) {
-            return String.format("%s@%s", mailbox.replace(":", "-"), googleDomain);
-        } else {
-            return String.format("%s@%s", mailbox, googleDomain);
         }
 
     }

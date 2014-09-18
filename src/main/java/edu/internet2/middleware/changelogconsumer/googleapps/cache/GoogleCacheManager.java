@@ -28,12 +28,9 @@ import edu.internet2.middleware.subject.Subject;
  *
  * @author John Gasper, Unicon
  */
-public class CacheManager {
+public class GoogleCacheManager {
     private static Cache googleUsers = new Cache<User>();
     private static Cache googleGroups = new Cache<Group>();
-
-    private static Cache grouperSubjects = new Cache<Subject>();
-    private static Cache grouperGroups = new Cache<edu.internet2.middleware.grouper.Group>();
 
     /**
      *
@@ -49,23 +46,6 @@ public class CacheManager {
      */
     public static Cache<Group> googleGroups() {
         return googleGroups;
-    }
-
-
-    /**
-     *
-     * @return a Grouper Group cache
-     */
-    public static Cache<Subject> grouperSubjects() {
-        return grouperSubjects;
-    }
-
-    /**
-     *
-     * @return a Grouper Group cache
-     */
-    public static Cache<edu.internet2.middleware.grouper.Group> grouperGroups() {
-        return grouperGroups;
     }
 
 }
