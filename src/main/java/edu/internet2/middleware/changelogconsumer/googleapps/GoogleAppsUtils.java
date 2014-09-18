@@ -26,10 +26,10 @@ import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.DirectoryRequest;
 import com.google.api.services.admin.directory.DirectoryScopes;
 import com.google.api.services.admin.directory.model.*;
-import edu.internet2.middleware.grouperClientExt.org.apache.commons.jexl2.JexlContext;
-import edu.internet2.middleware.grouperClientExt.org.apache.commons.jexl2.JexlEngine;
-import edu.internet2.middleware.grouperClientExt.org.apache.commons.jexl2.MapContext;
-import edu.internet2.middleware.grouperClientExt.org.apache.commons.jexl2.UnifiedJEXL;
+import org.apache.commons.jexl2.JexlContext;
+import org.apache.commons.jexl2.JexlEngine;
+import org.apache.commons.jexl2.MapContext;
+import org.apache.commons.jexl2.UnifiedJEXL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
