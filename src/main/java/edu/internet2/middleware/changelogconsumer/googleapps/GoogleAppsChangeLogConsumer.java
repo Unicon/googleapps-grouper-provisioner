@@ -227,6 +227,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired("changeLog.consumer.google.domain");
             LOG.debug("Google Apps Consumer - Setting Google domain to {}", GoogleAppsUtils.googleDomain);
 
+            GoogleAppsUtils.mailboxIdentifier =
+                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired("changeLog.consumer.google.mailboxIdentifier");
+            LOG.debug("Google Apps Consumer - Setting mailbox identifier to {}", GoogleAppsUtils.mailboxIdentifier);
 
             final GoogleCredential googleCredential = GoogleAppsUtils.getGoogleCredential(serviceAccountEmail,
                     serviceAccountPKCS12FilePath, serviceAccountUser, httpTransport, JSON_FACTORY);
@@ -250,7 +253,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         CacheManager.grouperGroups().seed(CacheManager.googleGroups().size());
 
         // retry on error
-        retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean("changeLog.consumer.google.retryOnError");
+        retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean("changeLog.consumer.google.retryOnError", false);
         LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
     }
 
@@ -516,7 +519,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
 
 
-        edu.internet2.middleware.grouper.Group  grouperGroup = fetchGrouperGroup(groupName);
+        edu.internet2.middleware.grouper.Group grouperGroup = fetchGrouperGroup(groupName);
         if (!shouldSyncGroup(grouperGroup)) {
             return;
         }

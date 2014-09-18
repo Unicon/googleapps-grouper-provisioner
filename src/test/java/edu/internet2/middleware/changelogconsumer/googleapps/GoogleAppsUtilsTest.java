@@ -35,6 +35,9 @@ import java.security.SecureRandom;
 import java.util.List;
 import java.util.Properties;
 
+import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+
 /**
  * These tests are intended to be run sequentially. At some point they maybe set up to run independently.
  */
@@ -130,7 +133,7 @@ public class GoogleAppsUtilsTest {
                 .setPassword(new BigInteger(130, new SecureRandom()).toString(32));
 
         User currentUser = GoogleAppsUtils.addUser(directory, user);
-        Assert.assertEquals("Boom", currentUser.getName().getGivenName(), user.getName().getGivenName());
+        assertEquals("Boom", currentUser.getName().getGivenName(), user.getName().getGivenName());
 
     }
 
@@ -141,44 +144,44 @@ public class GoogleAppsUtilsTest {
         group.setEmail(TEST_GROUP);
 
         Group currentGroup = GoogleAppsUtils.addGroup(directory, group);
-        Assert.assertEquals("Boom", currentGroup.getName(), group.getName());
+        assertEquals("Boom", currentGroup.getName(), group.getName());
 
     }
 
     @Test
     public void testRetrieveAllUsers() throws GeneralSecurityException, IOException {
         List<User> allUsers = GoogleAppsUtils.retrieveAllUsers(directory);
-        Assert.assertTrue(allUsers.size() > 0);
+        assertTrue(allUsers.size() > 0);
     }
 
     @Test
     public void testRetrieveUser() throws GeneralSecurityException, IOException {
         User user = GoogleAppsUtils.retrieveUser(directory, TEST_USER);
-        Assert.assertTrue(user.getName().getGivenName().equalsIgnoreCase("Test"));
+        assertTrue(user.getName().getGivenName().equalsIgnoreCase("Test"));
     }
 
     @Test
     public void testRetrieveMissingUser() throws GeneralSecurityException, IOException {
         User user = GoogleAppsUtils.retrieveUser(directory, "missing-" + TEST_USER);
-        Assert.assertTrue(user == null);
+        assertTrue(user == null);
     }
 
     @Test
     public void testRetrieveAllGroups() throws GeneralSecurityException, IOException {
         List<Group> allGroups = GoogleAppsUtils.retrieveAllGroups(directory);
-        Assert.assertTrue(allGroups.size() > 0);
+        assertTrue(allGroups.size() > 0);
     }
 
     @Test
     public void testRetrieveGroup() throws GeneralSecurityException, IOException {
         Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
-        Assert.assertTrue(group.getName().equalsIgnoreCase("Test Group"));
+        assertTrue(group.getName().equalsIgnoreCase("Test Group"));
     }
 
     @Test
     public void testRetrieveMissingGroup() throws GeneralSecurityException, IOException {
         Group group = GoogleAppsUtils.retrieveGroup(directory, "missing-" + TEST_GROUP);
-        Assert.assertTrue(group == null);
+        assertTrue(group == null);
     }
 
     @Test
@@ -190,19 +193,19 @@ public class GoogleAppsUtilsTest {
         Group group = GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP);
 
         Member currentMember = GoogleAppsUtils.addGroupMember(directory, group, member);
-        Assert.assertEquals("Boom", currentMember.getEmail(), member.getEmail());
+        assertEquals("Boom", currentMember.getEmail(), member.getEmail());
     }
 
     @Test
     public void testRetrieveGroupMembers() throws GeneralSecurityException, IOException {
         List<Member> members = GoogleAppsUtils.retrieveGroupMembers(directory, TEST_GROUP);
-        Assert.assertTrue(members.size() > 0);
+        assertTrue(members.size() > 0);
     }
 
     @Test
     public void testRemoveMember() throws GeneralSecurityException, IOException {
         GoogleAppsUtils.removeGroupMember(directory, TEST_GROUP, TEST_USER);
-        Assert.assertTrue(GoogleAppsUtils.retrieveGroupMembers(directory, TEST_GROUP).size() == 0);
+        assertTrue(GoogleAppsUtils.retrieveGroupMembers(directory, TEST_GROUP).size() == 0);
     }
 
     @Test
@@ -211,19 +214,29 @@ public class GoogleAppsUtilsTest {
         group.setName("test");
 
         Group result = GoogleAppsUtils.updateGroup(directory, TEST_GROUP, group);
-        Assert.assertEquals(result.getName(), "test");
-        Assert.assertTrue(GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP).getName().equalsIgnoreCase("test"));
+        assertEquals("test", result.getName());
+        assertEquals("test", GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP).getName());
     }
 
     @Test
     public void testRemoveGroup() throws GeneralSecurityException, IOException {
         GoogleAppsUtils.removeGroup(directory, TEST_GROUP);
-        Assert.assertTrue(GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP) == null);
+        assertTrue(GoogleAppsUtils.retrieveGroup(directory, TEST_GROUP) == null);
     }
 
     @Test
     public void testRemoveUser() throws GeneralSecurityException, IOException {
         GoogleAppsUtils.removeUser(directory, TEST_USER);
-        Assert.assertTrue(GoogleAppsUtils.retrieveUser(directory, TEST_USER) == null);
+        assertTrue(GoogleAppsUtils.retrieveUser(directory, TEST_USER) == null);
+    }
+
+    @Test
+    public void testQualifyAddress() {
+        GoogleAppsUtils.googleDomain = "test.edu";
+        GoogleAppsUtils.mailboxIdentifier = "crs-${groupName.replace(\"abc1:\", \"\")}-test";
+
+        String expected = "crs-abc2-test@test.edu";
+        String result = GoogleAppsUtils.qualifyAddress("abc1:abc2", true);
+        assertEquals(expected, result);
     }
 }
