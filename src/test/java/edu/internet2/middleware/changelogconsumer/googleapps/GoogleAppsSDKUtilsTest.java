@@ -47,7 +47,7 @@ public class GoogleAppsSdkUtilsTest {
 
     private static String SERVICE_ACCOUNT_EMAIL;
     private static String SERVICE_ACCOUNT_PKCS_12_FILE_PATH;
-    private static String SERVICE_ACCOUNT_USER;
+    private static String SERVICE_IMPERSONATION_USER;
 
     /** Global instance of the HTTP transport. */
     private static HttpTransport httpTransport;
@@ -71,7 +71,7 @@ public class GoogleAppsSdkUtilsTest {
 
             SERVICE_ACCOUNT_EMAIL = props.getProperty("SERVICE_ACCOUNT_EMAIL");
             SERVICE_ACCOUNT_PKCS_12_FILE_PATH = props.getProperty("SERVICE_ACCOUNT_PKCS_12_FILE_PATH");
-            SERVICE_ACCOUNT_USER = props.getProperty("SERVICE_ACCOUNT_USER");
+            SERVICE_IMPERSONATION_USER = props.getProperty("SERVICE_IMPERSONATION_USER");
         }
         catch (IOException e) {
             System.out.println("unit-test.properties configuration not found. Try again! Love, Grumpy Cat");
@@ -84,7 +84,7 @@ public class GoogleAppsSdkUtilsTest {
 
         if (googleCredential == null) {
             googleCredential = GoogleAppsSdkUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
-                    SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_ACCOUNT_USER,
+                    SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_IMPERSONATION_USER,
                     httpTransport, JSON_FACTORY);
         }
 
@@ -114,7 +114,7 @@ public class GoogleAppsSdkUtilsTest {
         httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
         GoogleCredential googleCredential = GoogleAppsSdkUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
-                SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_ACCOUNT_USER,
+                SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_IMPERSONATION_USER,
                 httpTransport, JSON_FACTORY);
 
         Directory service = new Directory.Builder(httpTransport, JSON_FACTORY, googleCredential)

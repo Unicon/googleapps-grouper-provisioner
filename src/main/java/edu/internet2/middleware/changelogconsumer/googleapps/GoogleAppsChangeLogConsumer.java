@@ -216,9 +216,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "serviceAccountEmail");
             LOG.debug("Google Apps Consumer - Setting Google serviceAccountEmail on error to {}", serviceAccountEmail);
 
-            final String serviceAccountUser =
-                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "serviceAccountUser");
-            LOG.debug("Google Apps Consumer - Setting Google serviceAccountUser to {}", serviceAccountUser);
+            final String serviceImpersonationUser =
+                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "serviceImpersonationUser");
+            LOG.debug("Google Apps Consumer - Setting Google serviceImpersonationUser to {}", serviceImpersonationUser);
 
             String googleDomain =
                     GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "domain");
@@ -238,7 +238,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     .setDomain(googleDomain);
 
             final GoogleCredential googleCredential = GoogleAppsSdkUtils.getGoogleCredential(serviceAccountEmail,
-                    serviceAccountPKCS12FilePath, serviceAccountUser, httpTransport, JSON_FACTORY);
+                    serviceAccountPKCS12FilePath, serviceImpersonationUser, httpTransport, JSON_FACTORY);
 
             directory = new Directory.Builder(httpTransport, JSON_FACTORY, googleCredential)
                     .setApplicationName("Google Apps Grouper Provisioner")

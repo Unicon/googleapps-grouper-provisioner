@@ -96,7 +96,7 @@ public class GoogleAppsChangeLogConsumerTest {
 
             GoogleCredential googleCredential = null;
                  googleCredential = GoogleAppsSdkUtils.getGoogleCredential(props.getProperty("SERVICE_ACCOUNT_EMAIL"),
-                        props.getProperty("SERVICE_ACCOUNT_PKCS_12_FILE_PATH"), props.getProperty("SERVICE_ACCOUNT_USER"),
+                        props.getProperty("SERVICE_ACCOUNT_PKCS_12_FILE_PATH"), props.getProperty("SERVICE_IMPERSONATION_USER"),
                         httpTransport, JSON_FACTORY);
 
             directory = new Directory.Builder(httpTransport, JSON_FACTORY, googleCredential)
