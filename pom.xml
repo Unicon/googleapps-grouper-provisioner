@@ -46,6 +46,14 @@
             <groupId>edu.internet2.middleware.grouper</groupId>
             <artifactId>grouper</artifactId>
             <version>${grouper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.6.1</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -81,13 +89,6 @@
             <groupId>org.powermock</groupId>
             <artifactId>powermock-module-junit4</artifactId>
             <version>${powermock.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.hibernate</groupId>
-            <artifactId>hibernate-core</artifactId>
-            <version>3.6.7.Final</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
