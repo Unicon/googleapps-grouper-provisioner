@@ -33,7 +33,7 @@ public class AddressFormatter {
     private String domain;
 
     public String qualifySubjectAddress(String subjectId) {
-        JexlContext context = new MapContext();
+        final JexlContext context = new MapContext();
         context.set("subjectId", subjectId);
 
         final String address = subjectIdentifierExp.evaluate(context).toString();
@@ -42,10 +42,10 @@ public class AddressFormatter {
     }
 
     public String qualifyGroupAddress(String group) {
-        JexlContext context = new MapContext();
+        final JexlContext context = new MapContext();
         context.set("groupName", group);
 
-        String mailbox = groupIdentifierExp.evaluate(context).toString();
+        final String mailbox = groupIdentifierExp.evaluate(context).toString();
 
         return String.format("%s@%s", mailbox.replace(":", "-"), this.domain);
     }

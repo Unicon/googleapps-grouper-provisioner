@@ -47,9 +47,9 @@ public class GoogleAppsSdkUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
 
-    private final static String[] scope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
+    private static final String[] scope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
 
-    private final static Random randomGenerator = new Random();
+    private static final Random randomGenerator = new Random();
 
     /**
      * getGoogleCredential creates a credential object that authenticates the REST API calls.
@@ -239,7 +239,7 @@ public class GoogleAppsSdkUtils {
     public static List<Group> retrieveAllGroups(Directory directory) throws IOException {
         LOG.debug("retrieveAllGroups()");
 
-        List<Group> allGroups = new ArrayList<Group>();
+        final List<Group> allGroups = new ArrayList<Group>();
 
         Directory.Groups.List request = null;
         try {
@@ -249,7 +249,7 @@ public class GoogleAppsSdkUtils {
         }
 
         do { //continue until we have all the pages read in.
-            Groups currentPage = (Groups)execute(request);
+            final Groups currentPage = (Groups)execute(request);
 
             allGroups.addAll(currentPage.getGroups());
             request.setPageToken(currentPage.getNextPageToken());
@@ -290,7 +290,7 @@ public class GoogleAppsSdkUtils {
     public static List<Member> retrieveGroupMembers(Directory directory, String groupKey) throws IOException {
         LOG.debug("retrieveGroupMembers() - {}", groupKey);
 
-        List<Member> members = new ArrayList<Member>();
+        final List<Member> members = new ArrayList<Member>();
 
         Directory.Members.List request = null;
         try {
@@ -301,7 +301,7 @@ public class GoogleAppsSdkUtils {
 
         do { //continue until we have all the pages read in.
             try {
-                Members currentPage = (Members) execute(request);
+                final Members currentPage = (Members) execute(request);
 
                 members.addAll(currentPage.getMembers());
                 request.setPageToken(currentPage.getNextPageToken());
@@ -367,7 +367,7 @@ public class GoogleAppsSdkUtils {
     private static boolean handleGoogleJsonResponseException(GoogleJsonResponseException ex, int interval)
             throws GoogleJsonResponseException {
 
-        GoogleJsonError e = ex.getDetails();
+        final GoogleJsonError e = ex.getDetails();
 
         switch (e.getCode()) {
             case 403:
