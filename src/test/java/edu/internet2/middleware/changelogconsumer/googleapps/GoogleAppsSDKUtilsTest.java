@@ -106,8 +106,12 @@ public class GoogleAppsSdkUtilsTest {
     @After
     public void teardown() throws GeneralSecurityException, IOException {
         //Give Google a half a second to catch up since we create and destroy the same users and groups over and over
+        pause(500L);
+    }
+
+    private void pause(long milliseconds) {
         try {
-            Thread.sleep(500L);
+            Thread.sleep(milliseconds);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

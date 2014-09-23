@@ -134,11 +134,7 @@ public class GoogleAppsChangeLogConsumerTest {
         GoogleCacheManager.googleUsers().clear();
 
         //Give Google a second to catch up since we create and destroy the same users and groups over and over
-        try {
-            Thread.sleep(1500L);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        pause(1000L);
     }
 
     @Test
@@ -189,6 +185,9 @@ public class GoogleAppsChangeLogConsumerTest {
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
         Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
+
+        pause(1000L);
+
         assertNotNull(group);
         assertEquals(NEW_TEST, group.getName());
 
@@ -221,6 +220,7 @@ public class GoogleAppsChangeLogConsumerTest {
         assertTrue(members.get(0).getEmail().equalsIgnoreCase(addressFormatter.qualifySubjectAddress(subjectId)));
     }
 
+/* This only works if the grouper-load.properties is marked with .provisionUsers=false
     @Test
     public void testProcessGroupMemberAddNewUserNoProvisioning() throws GeneralSecurityException, IOException {
         //User doesn't exists in Google
@@ -235,14 +235,15 @@ public class GoogleAppsChangeLogConsumerTest {
 
         ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
-        consumer.setProvisionUsers(false);
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
         List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(members);
         assertTrue(members.size() == 0);
     }
+*/
 
+    //This only works if the grouper-load.properties is marked with .provisionUsers=true
     @Test
     public void testProcessGroupMemberAddNewUserWithProvisioning() throws GeneralSecurityException, IOException {
         //User doesn't exists in Google
@@ -379,4 +380,13 @@ public class GoogleAppsChangeLogConsumerTest {
         when(subject.getType()).thenReturn(SubjectTypeEnum.GROUP);
         return subject;
     }
+
+    private void pause(long milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
 }

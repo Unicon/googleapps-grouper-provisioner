@@ -292,7 +292,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
 
         handleDeletedGroup =
-                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "changeLog.consumer.google.handleDeletedGroup");
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "handleDeletedGroup", "ignore");
         LOG.debug("Google Apps Consumer - Setting handleDeletedGroup to {}", handleDeletedGroup);
 
         //TODO: make the cache settings properties

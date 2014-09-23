@@ -32,12 +32,17 @@ public class GoogleCacheManager {
     private static Cache<User> googleUsers = new Cache<User>();
     private static Cache<Group> googleGroups = new Cache<Group>();
 
+    private static final Object usersLock = new Object();
+    private static final Object groupsLock = new Object();
+
     /**
      *
      * @return a Google User cache
      */
     public static Cache<User> googleUsers() {
-        return googleUsers;
+        synchronized (usersLock) {
+            return googleUsers;
+        }
     }
 
     /**
@@ -45,7 +50,9 @@ public class GoogleCacheManager {
      * @return a Google Group cache
      */
     public static Cache<Group> googleGroups() {
-        return googleGroups;
+        synchronized (groupsLock) {
+            return googleGroups;
+        }
     }
 
 }

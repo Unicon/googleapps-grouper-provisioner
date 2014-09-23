@@ -29,7 +29,7 @@ changeLog.consumer.google.subjectIdentifierExpression=${subjectId}
 ```
 
 The first items are created by following the instructions at [Perform Google Apps Domain-Wide Delegation of Authority](https://developers.google.com/admin-sdk/directory/v1/guides/delegation).
-The account will need to be given these grants: `https://www.googleapis.com/auth/admin.directory.user, https://www.googleapis.com/auth/admin.directory.group`.
+The account will need to be given these grants: `https://www.googleapis.com/auth/admin.directory.user, https://www.googleapis.com/auth/admin.directory.group, https://www.googleapis.com/auth/apps.groups.settings`.
 
 The serviceImpersonationUser is a fully qualified Google user account that the Google Apps Grouper Provisioner will be 
 acting on behalf of, while the domain is the hostname of the user & google accounts.

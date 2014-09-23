@@ -30,7 +30,7 @@ import java.util.List;
  * * @author John Gasper, Unicon
  */
 public class Cache<T> {
-    private Hashtable<String, T> cache;
+    private Hashtable<String, T> cache = new Hashtable<String, T>();
     private DateTime cachePopulatedTime;
     private int cacheValidity = 30;
 
@@ -82,7 +82,6 @@ public class Cache<T> {
         } else {
             return item.toString();
         }
-
     }
 
     public void setCacheValidity(int minutes){
