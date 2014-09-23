@@ -95,9 +95,9 @@ public class GoogleAppsChangeLogConsumerTest {
             httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
             GoogleCredential googleCredential = null;
-                 googleCredential = GoogleAppsSdkUtils.getGoogleCredential(props.getProperty("SERVICE_ACCOUNT_EMAIL"),
-                        props.getProperty("SERVICE_ACCOUNT_PKCS_12_FILE_PATH"), props.getProperty("SERVICE_IMPERSONATION_USER"),
-                        httpTransport, JSON_FACTORY);
+                 googleCredential = GoogleAppsSdkUtils.getGoogleDirectoryCredential(props.getProperty("SERVICE_ACCOUNT_EMAIL"),
+                         props.getProperty("SERVICE_ACCOUNT_PKCS_12_FILE_PATH"), props.getProperty("SERVICE_IMPERSONATION_USER"),
+                         httpTransport, JSON_FACTORY);
 
             directory = new Directory.Builder(httpTransport, JSON_FACTORY, googleCredential)
                     .setApplicationName("Google Apps Grouper Provisioner")

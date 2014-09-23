@@ -26,6 +26,10 @@ import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.DirectoryRequest;
 import com.google.api.services.admin.directory.DirectoryScopes;
 import com.google.api.services.admin.directory.model.*;
+import com.google.api.services.admin.directory.model.Groups;
+import com.google.api.services.groupssettings.Groupssettings;
+import com.google.api.services.groupssettings.GroupssettingsRequest;
+import com.google.api.services.groupssettings.GroupssettingsScopes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,12 +51,14 @@ public class GoogleAppsSdkUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
 
-    private static final String[] scope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
+    private static final String[] directoryScope = {DirectoryScopes.ADMIN_DIRECTORY_USER, DirectoryScopes.ADMIN_DIRECTORY_GROUP};
+
+    private static final String[] groupssettingsScope = {GroupssettingsScopes.APPS_GROUPS_SETTINGS};
 
     private static final Random randomGenerator = new Random();
 
     /**
-     * getGoogleCredential creates a credential object that authenticates the REST API calls.
+     * getGoogleDirectoryCredential creates a credential object that authenticates the REST API calls.
      * @param serviceAccountEmail
      * @param serviceAccountPKCS12FilePath path of a private key (.p12) file provided by Google
      * @param serviceAccountUser a impersonation user account
@@ -62,15 +68,40 @@ public class GoogleAppsSdkUtils {
      * @throws GeneralSecurityException
      * @throws IOException
      */
-    public static GoogleCredential getGoogleCredential(String serviceAccountEmail, String serviceAccountPKCS12FilePath,
-                                        String serviceAccountUser, HttpTransport httpTransport, JsonFactory jsonFactory)
+    public static GoogleCredential getGoogleDirectoryCredential(String serviceAccountEmail, String serviceAccountPKCS12FilePath,
+                                                                String serviceAccountUser, HttpTransport httpTransport, JsonFactory jsonFactory)
             throws GeneralSecurityException, IOException {
 
         return new GoogleCredential.Builder()
                 .setTransport(httpTransport)
                 .setJsonFactory(jsonFactory)
                 .setServiceAccountId(serviceAccountEmail)
-                .setServiceAccountScopes(Arrays.asList(scope))
+                .setServiceAccountScopes(Arrays.asList(directoryScope))
+                .setServiceAccountUser(serviceAccountUser)
+                .setServiceAccountPrivateKeyFromP12File(new File(serviceAccountPKCS12FilePath))
+                .build();
+    }
+
+    /**
+     * getGoogleDirectoryCredential creates a credential object that authenticates the REST API calls.
+     * @param serviceAccountEmail
+     * @param serviceAccountPKCS12FilePath path of a private key (.p12) file provided by Google
+     * @param serviceAccountUser a impersonation user account
+     * @param httpTransport a httpTransport object
+     * @param jsonFactory a jsonFactory object
+     * @return a Google Credential
+     * @throws GeneralSecurityException
+     * @throws IOException
+     */
+    public static GoogleCredential getGoogleGroupssettingsCredential(String serviceAccountEmail, String serviceAccountPKCS12FilePath,
+                                                                String serviceAccountUser, HttpTransport httpTransport, JsonFactory jsonFactory)
+            throws GeneralSecurityException, IOException {
+
+        return new GoogleCredential.Builder()
+                .setTransport(httpTransport)
+                .setJsonFactory(jsonFactory)
+                .setServiceAccountId(serviceAccountEmail)
+                .setServiceAccountScopes(Arrays.asList(groupssettingsScope))
                 .setServiceAccountUser(serviceAccountUser)
                 .setServiceAccountPrivateKeyFromP12File(new File(serviceAccountPKCS12FilePath))
                 .build();
@@ -78,18 +109,18 @@ public class GoogleAppsSdkUtils {
 
     /**
      * addUser creates a user to Google.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory (service) object
      * @param user a populated User object
      * @return the new User object created/returned by Google
      * @throws IOException
      */
-    public static User addUser(Directory directory, User user) throws IOException {
+    public static User addUser(Directory directoryClient, User user) throws IOException {
         LOG.debug("addUser() - {}", user);
 
         Directory.Users.Insert request = null;
 
         try {
-            request = directory.users().insert(user);
+            request = directoryClient.users().insert(user);
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }
@@ -99,17 +130,17 @@ public class GoogleAppsSdkUtils {
 
     /**
      * removeGroup removes a group from Google.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory (service) object
      * @param userKey an identifier for a user (e-mail address is the most popular)
      * @throws IOException
      */
-    public static void removeUser(Directory directory, String userKey) throws IOException {
+    public static void removeUser(Directory directoryClient, String userKey) throws IOException {
         LOG.debug("removeUser() - {}", userKey);
 
         Directory.Users.Delete request = null;
 
         try {
-            request = directory.users().delete(userKey);
+            request = directoryClient.users().delete(userKey);
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }
@@ -120,18 +151,18 @@ public class GoogleAppsSdkUtils {
 
     /**
      * addGroup adds a group to Google.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @param group a populated Group object
      * @return the new Group object created/returned by Google
      * @throws IOException
      */
-    public static Group addGroup(Directory directory, Group group) throws IOException {
+    public static Group addGroup(Directory directoryClient, Group group) throws IOException {
         LOG.debug("addGroup() - {}", group);
 
         Directory.Groups.Insert request = null;
 
         try {
-            request = directory.groups().insert(group);
+            request = directoryClient.groups().insert(group);
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }
@@ -141,17 +172,17 @@ public class GoogleAppsSdkUtils {
 
     /**
      * removeGroup removes a group from Google.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @param groupKey
      * @throws IOException
      */
-    public static void removeGroup(Directory directory, String groupKey) throws IOException {
+    public static void removeGroup(Directory directoryClient, String groupKey) throws IOException {
         LOG.debug("removeGroup() - {}", groupKey);
 
         Directory.Groups.Delete request = null;
 
         try {
-            request = directory.groups().delete(groupKey);
+            request = directoryClient.groups().delete(groupKey);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -161,18 +192,18 @@ public class GoogleAppsSdkUtils {
 
     /**
      * addGroup adds a group to Google.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @param group a populated Group object
      * @return the new Group object created/returned by Google
      * @throws IOException
      */
-    public static Group updateGroup(Directory directory, String groupKey, Group group) throws IOException {
+    public static Group updateGroup(Directory directoryClient, String groupKey, Group group) throws IOException {
         LOG.debug("updateGroup() - {}", group);
 
         Directory.Groups.Update request = null;
 
         try {
-            request = directory.groups().update(groupKey, group);
+            request = directoryClient.groups().update(groupKey, group);
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }
@@ -181,19 +212,40 @@ public class GoogleAppsSdkUtils {
     }
 
     /**
+     * addGroup adds a group to Google.
+     * @param groupssettingsClient a Groupssettings client
+     * @param groupSettings a populated Groups (group settings) object
+     * @return the new Group object created/returned by Google
+     * @throws IOException
+     */
+    public static com.google.api.services.groupssettings.model.Groups updateGroupSettings(Groupssettings groupssettingsClient, String groupKey, com.google.api.services.groupssettings.model.Groups groupSettings) throws IOException {
+        LOG.debug("updateGroup() - {}", groupKey);
+
+        Groupssettings.Groups.Update request = null;
+
+        try {
+            request = groupssettingsClient.groups().update(groupKey, groupSettings);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        return (com.google.api.services.groupssettings.model.Groups) execute(request);
+    }
+
+    /**
      * retrieveAllUsers returns all of the users from Google.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @return a list of all the users in the directory
      * @throws IOException
      */
-    public static List<User> retrieveAllUsers(Directory directory) throws IOException {
+    public static List<User> retrieveAllUsers(Directory directoryClient) throws IOException {
         LOG.debug("retrieveAllUsers()");
 
         List<User> allUsers = new ArrayList<User>();
 
         Directory.Users.List request = null;
         try {
-            request = directory.users().list().setCustomer("my_customer");
+            request = directoryClient.users().list().setCustomer("my_customer");
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }
@@ -211,18 +263,18 @@ public class GoogleAppsSdkUtils {
 
     /**
      *
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory (service) object
      * @param userKey an identifier for a user (e-mail address is the most popular)
      * @return the User object returned by Google.
      * @throws IOException
      */
-    public static User retrieveUser(Directory directory, String userKey) throws IOException {
+    public static User retrieveUser(Directory directoryClient, String userKey) throws IOException {
         LOG.debug("retrieveUser() - {}", userKey);
 
         Directory.Users.Get request = null;
 
         try {
-            request = directory.users().get(userKey);
+            request = directoryClient.users().get(userKey);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -232,18 +284,18 @@ public class GoogleAppsSdkUtils {
 
     /**
      *
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @return a list of all the groups in the directory
      * @throws IOException
      */
-    public static List<Group> retrieveAllGroups(Directory directory) throws IOException {
+    public static List<Group> retrieveAllGroups(Directory directoryClient) throws IOException {
         LOG.debug("retrieveAllGroups()");
 
         final List<Group> allGroups = new ArrayList<Group>();
 
         Directory.Groups.List request = null;
         try {
-            request = directory.groups().list().setCustomer("my_customer");
+            request = directoryClient.groups().list().setCustomer("my_customer");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -261,18 +313,18 @@ public class GoogleAppsSdkUtils {
 
     /**
      * retrieveGroup returns a requested group.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @param groupKey an identifier for a group (e-mail address is the most popular)
      * @return the Group object from Google
      * @throws IOException
      */
-    public static Group retrieveGroup(Directory directory, String groupKey) throws IOException {
+    public static Group retrieveGroup(Directory directoryClient, String groupKey) throws IOException {
         LOG.debug("retrieveGroup() - {}", groupKey);
 
         Directory.Groups.Get request = null;
 
         try {
-            request = directory.groups().get(groupKey);
+            request = directoryClient.groups().get(groupKey);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -281,20 +333,41 @@ public class GoogleAppsSdkUtils {
     }
 
     /**
+     * retrieveGroup returns a requested group.
+     * @param groupssettingClient a Groupssettings client
+     * @param groupKey an identifier for a group (e-mail address is the most popular)
+     * @return the Groups object from Google
+     * @throws IOException
+     */
+    public static com.google.api.services.groupssettings.model.Groups retrieveGroupSettings(Groupssettings groupssettingClient, String groupKey) throws IOException {
+        LOG.debug("retrieveGroup() - {}", groupKey);
+
+        Groupssettings.Groups.Get request = null;
+
+        try {
+            request = groupssettingClient.groups().get(groupKey);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return (com.google.api.services.groupssettings.model.Groups) execute(request);
+    }
+
+    /**
      * retrieveGroupMembers returns a list of members of a group.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @param groupKey an identifier for a group (e-mail address is the most popular)
      * @return a list of Members in the Group
      * @throws IOException
      */
-    public static List<Member> retrieveGroupMembers(Directory directory, String groupKey) throws IOException {
+    public static List<Member> retrieveGroupMembers(Directory directoryClient, String groupKey) throws IOException {
         LOG.debug("retrieveGroupMembers() - {}", groupKey);
 
         final List<Member> members = new ArrayList<Member>();
 
         Directory.Members.List request = null;
         try {
-            request = directory.members().list(groupKey);
+            request = directoryClient.members().list(groupKey);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -316,19 +389,19 @@ public class GoogleAppsSdkUtils {
 
     /**
      * addGroupMember add an additional member to a group.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @param group a Group object
      * @param member a Member object
      * @return a Member object stored on Google.
      * @throws IOException
      */
-    public static Member addGroupMember(Directory directory, Group group, Member member) throws IOException {
+    public static Member addGroupMember(Directory directoryClient, Group group, Member member) throws IOException {
         LOG.debug("addGroupMember() - add {} to {}", member, group);
 
         Directory.Members.Insert request = null;
 
         try {
-            request = directory.members().insert(group.getId(), member);
+            request = directoryClient.members().insert(group.getId(), member);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -338,18 +411,18 @@ public class GoogleAppsSdkUtils {
 
     /**
      * removeGroupMember removes a member of a group.
-     * @param directory a Directory (service) object
+     * @param directoryClient a Directory client
      * @param groupKey an identifier for a user (e-mail address is the most popular)
      * @param memberKey an identifier for a user (e-mail address is the most popular)
      * @throws GoogleJsonResponseException
      */
-    public static void removeGroupMember(Directory directory, String groupKey, String memberKey) throws IOException {
+    public static void removeGroupMember(Directory directoryClient, String groupKey, String memberKey) throws IOException {
         LOG.debug("removeGroupMember() - remove {} from {}", memberKey, groupKey);
 
         Directory.Members.Delete request = null;
 
         try {
-            request = directory.members().delete(groupKey, memberKey);
+            request = directoryClient.members().delete(groupKey, memberKey);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -412,7 +485,7 @@ public class GoogleAppsSdkUtils {
      * @throws IOException
      */
     private static Object execute(DirectoryRequest request) throws IOException {
-        return execute(1, request);
+        return execute(request, 1);
     }
 
     /**
@@ -422,7 +495,7 @@ public class GoogleAppsSdkUtils {
      * @return an output Object that should be cast in the calling method
      * @throws IOException
      */
-    private static Object execute(int interval, DirectoryRequest request) throws IOException {
+    private static Object execute(DirectoryRequest request, int interval) throws IOException {
         LOG.trace("execute() - {} request attempt #{}",request.getClass().getName().replace(request.getClass().getPackage().getName(), ""), interval);
 
         try {
@@ -436,7 +509,7 @@ public class GoogleAppsSdkUtils {
                 if (handleGoogleJsonResponseException(ex, interval)) { //404's return true
                     return null;
                 } else {
-                    return execute(++interval, request);
+                    return execute(request, ++interval);
                 }
             }
         } catch(IOException e) {
@@ -447,7 +520,56 @@ public class GoogleAppsSdkUtils {
                 throw e;
 
             } else {
-                return execute(++interval, request);
+                return execute(request, ++interval);
+            }
+        }
+
+    }
+
+
+    /**
+     * execute takes a GroupssettingsRequest and calls the execute() method and handles exponential back-off, etc.
+     * @param request a populated GroupssettingsRequest object
+     * @return an output Object that should be cast in the calling method
+     * @throws IOException
+     */
+    private static Object execute(GroupssettingsRequest request) throws IOException {
+        return execute(request, 1);
+    }
+
+    /**
+     * execute takes a GroupssettingsRequest and calls the execute() method and handles exponential back-off, etc.
+     * @param request a populated GroupsettingsRequest object
+     * @param interval the count of attempts that this request has had.
+     * @return an output Object that should be cast in the calling method
+     * @throws IOException
+     */
+    private static Object execute(GroupssettingsRequest request, int interval) throws IOException {
+        LOG.trace("execute() - {} request attempt #{}",request.getClass().getName().replace(request.getClass().getPackage().getName(), ""), interval);
+
+        try {
+            return request.execute();
+        } catch (GoogleJsonResponseException ex) {
+            if (interval == 7) {
+                LOG.error("execute() - Retried attempt 7 times, failing request");
+                throw ex;
+
+            } else {
+                if (handleGoogleJsonResponseException(ex, interval)) { //404's return true
+                    return null;
+                } else {
+                    return execute(request, ++interval);
+                }
+            }
+        } catch(IOException e) {
+            LOG.error("execute() - An unknown IO error occurred: " + e);
+
+            if (interval == 7) {
+                LOG.error("Retried attempt 7 times, failing request");
+                throw e;
+
+            } else {
+                return execute(request, ++interval);
             }
         }
 

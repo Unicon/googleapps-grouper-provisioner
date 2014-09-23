@@ -25,6 +25,8 @@ import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.admin.directory.Directory;
 import com.google.api.services.admin.directory.model.*;
 
+import com.google.api.services.groupssettings.Groupssettings;
+import com.google.api.services.groupssettings.model.Groups;
 import org.junit.*;
 
 import java.io.IOException;
@@ -55,8 +57,9 @@ public class GoogleAppsSdkUtilsTest {
     /** Global instance of the JSON factory. */
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
-    private static GoogleCredential googleCredential = null;
-    private static Directory directory = null;
+
+    private static Directory directoryClient = null;
+    private static Groupssettings groupssettingsClient = null;
 
 
     @BeforeClass
@@ -82,13 +85,20 @@ public class GoogleAppsSdkUtilsTest {
     public void setup()  throws GeneralSecurityException, IOException {
         httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
-        if (googleCredential == null) {
-            googleCredential = GoogleAppsSdkUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
+        GoogleCredential googleDirectoryCredential = GoogleAppsSdkUtils.getGoogleDirectoryCredential(SERVICE_ACCOUNT_EMAIL,
                     SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_IMPERSONATION_USER,
                     httpTransport, JSON_FACTORY);
-        }
 
-        directory = new Directory.Builder(httpTransport, JSON_FACTORY, googleCredential)
+        GoogleCredential googleGroupssettingsCredential = GoogleAppsSdkUtils.getGoogleDirectoryCredential(SERVICE_ACCOUNT_EMAIL,
+                SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_IMPERSONATION_USER,
+                httpTransport, JSON_FACTORY);
+
+
+        directoryClient = new Directory.Builder(httpTransport, JSON_FACTORY, googleDirectoryCredential)
+                .setApplicationName("Google Apps Grouper Provisioner")
+                .build();
+
+        groupssettingsClient = new Groupssettings.Builder(httpTransport, JSON_FACTORY, googleGroupssettingsCredential)
                 .setApplicationName("Google Apps Grouper Provisioner")
                 .build();
     }
@@ -105,15 +115,15 @@ public class GoogleAppsSdkUtilsTest {
 
     @AfterClass
     public static void teardownClass() throws IOException {
-        GoogleAppsSdkUtils.removeGroup(directory, TEST_GROUP);
-        GoogleAppsSdkUtils.removeUser(directory, TEST_USER);
+        GoogleAppsSdkUtils.removeGroup(directoryClient, TEST_GROUP);
+        GoogleAppsSdkUtils.removeUser(directoryClient, TEST_USER);
     }
 
     @Test
     public void testGetGoogleCredential() throws Exception {
         httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
-        GoogleCredential googleCredential = GoogleAppsSdkUtils.getGoogleCredential(SERVICE_ACCOUNT_EMAIL,
+        GoogleCredential googleCredential = GoogleAppsSdkUtils.getGoogleDirectoryCredential(SERVICE_ACCOUNT_EMAIL,
                 SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_IMPERSONATION_USER,
                 httpTransport, JSON_FACTORY);
 
@@ -127,13 +137,12 @@ public class GoogleAppsSdkUtilsTest {
 
     @Test
     public void testCreateUser() throws GeneralSecurityException, IOException {
-
         User user = new User();
         user.setName(new UserName().setFamilyName("Gasper").setGivenName("Test"))
                 .setPrimaryEmail(TEST_USER)
                 .setPassword(new BigInteger(130, new SecureRandom()).toString(32));
 
-        User currentUser = GoogleAppsSdkUtils.addUser(directory, user);
+        User currentUser = GoogleAppsSdkUtils.addUser(directoryClient, user);
         assertEquals("Boom", currentUser.getName().getGivenName(), user.getName().getGivenName());
 
     }
@@ -144,44 +153,51 @@ public class GoogleAppsSdkUtilsTest {
         group.setName("Test Group");
         group.setEmail(TEST_GROUP);
 
-        Group currentGroup = GoogleAppsSdkUtils.addGroup(directory, group);
+        Group currentGroup = GoogleAppsSdkUtils.addGroup(directoryClient, group);
         assertEquals("Boom", currentGroup.getName(), group.getName());
 
     }
 
     @Test
     public void testRetrieveAllUsers() throws GeneralSecurityException, IOException {
-        List<User> allUsers = GoogleAppsSdkUtils.retrieveAllUsers(directory);
+        List<User> allUsers = GoogleAppsSdkUtils.retrieveAllUsers(directoryClient);
         assertTrue(allUsers.size() > 0);
     }
 
     @Test
     public void testRetrieveUser() throws GeneralSecurityException, IOException {
-        User user = GoogleAppsSdkUtils.retrieveUser(directory, TEST_USER);
-        assertTrue(user.getName().getGivenName().equalsIgnoreCase("Test"));
+        User user = GoogleAppsSdkUtils.retrieveUser(directoryClient, TEST_USER);
+        assertEquals("Test", user.getName().getGivenName());
     }
 
     @Test
     public void testRetrieveMissingUser() throws GeneralSecurityException, IOException {
-        User user = GoogleAppsSdkUtils.retrieveUser(directory, "missing-" + TEST_USER);
+        User user = GoogleAppsSdkUtils.retrieveUser(directoryClient, "missing-" + TEST_USER);
         assertTrue(user == null);
     }
 
     @Test
     public void testRetrieveAllGroups() throws GeneralSecurityException, IOException {
-        List<Group> allGroups = GoogleAppsSdkUtils.retrieveAllGroups(directory);
+        List<Group> allGroups = GoogleAppsSdkUtils.retrieveAllGroups(directoryClient);
         assertTrue(allGroups.size() > 0);
     }
 
     @Test
     public void testRetrieveGroup() throws GeneralSecurityException, IOException {
-        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP);
-        assertTrue(group.getName().equalsIgnoreCase("Test Group"));
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directoryClient, TEST_GROUP);
+        assertEquals("Test Group", group.getName());
     }
 
     @Test
+    public void testRetrieveGroupSettings() throws GeneralSecurityException, IOException {
+        com.google.api.services.groupssettings.model.Groups groupsSettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, TEST_GROUP);
+        assertEquals("Test Group", groupsSettings.getName());
+    }
+
+
+    @Test
     public void testRetrieveMissingGroup() throws GeneralSecurityException, IOException {
-        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, "missing-" + TEST_GROUP);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directoryClient, "missing-" + TEST_GROUP);
         assertTrue(group == null);
     }
 
@@ -191,43 +207,53 @@ public class GoogleAppsSdkUtilsTest {
         member.setRole("MEMBER");
         member.setEmail(TEST_USER);
 
-        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directoryClient, TEST_GROUP);
 
-        Member currentMember = GoogleAppsSdkUtils.addGroupMember(directory, group, member);
+        Member currentMember = GoogleAppsSdkUtils.addGroupMember(directoryClient, group, member);
         assertEquals("Boom", currentMember.getEmail(), member.getEmail());
     }
 
     @Test
     public void testRetrieveGroupMembers() throws GeneralSecurityException, IOException {
-        List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, TEST_GROUP);
+        List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directoryClient, TEST_GROUP);
         assertTrue(members.size() > 0);
     }
 
     @Test
     public void testRemoveMember() throws GeneralSecurityException, IOException {
-        GoogleAppsSdkUtils.removeGroupMember(directory, TEST_GROUP, TEST_USER);
-        assertTrue(GoogleAppsSdkUtils.retrieveGroupMembers(directory, TEST_GROUP).size() == 0);
+        GoogleAppsSdkUtils.removeGroupMember(directoryClient, TEST_GROUP, TEST_USER);
+        assertTrue(GoogleAppsSdkUtils.retrieveGroupMembers(directoryClient, TEST_GROUP).size() == 0);
     }
 
     @Test
     public void testUpdateGroup() throws GeneralSecurityException, IOException {
-        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directoryClient, TEST_GROUP);
         group.setName("test");
 
-        Group result = GoogleAppsSdkUtils.updateGroup(directory, TEST_GROUP, group);
+        Group result = GoogleAppsSdkUtils.updateGroup(directoryClient, TEST_GROUP, group);
         assertEquals("test", result.getName());
-        assertEquals("test", GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP).getName());
+        assertEquals("test", GoogleAppsSdkUtils.retrieveGroup(directoryClient, TEST_GROUP).getName());
+    }
+
+    @Test
+    public void testUpdateGroupSettings() throws GeneralSecurityException, IOException {
+        Groups groupSettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, TEST_GROUP);
+        groupSettings.setShowInGroupDirectory("false");
+
+        Groups result = GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, TEST_GROUP, groupSettings);
+        assertEquals(false, result.getShowInGroupDirectory());
+        assertEquals(false, GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, TEST_GROUP).getShowInGroupDirectory());
     }
 
     @Test
     public void testRemoveGroup() throws GeneralSecurityException, IOException {
-        GoogleAppsSdkUtils.removeGroup(directory, TEST_GROUP);
-        assertTrue(GoogleAppsSdkUtils.retrieveGroup(directory, TEST_GROUP) == null);
+        GoogleAppsSdkUtils.removeGroup(directoryClient, TEST_GROUP);
+        assertTrue(GoogleAppsSdkUtils.retrieveGroup(directoryClient, TEST_GROUP) == null);
     }
 
     @Test
     public void testRemoveUser() throws GeneralSecurityException, IOException {
-        GoogleAppsSdkUtils.removeUser(directory, TEST_USER);
-        assertTrue(GoogleAppsSdkUtils.retrieveUser(directory, TEST_USER) == null);
+        GoogleAppsSdkUtils.removeUser(directoryClient, TEST_USER);
+        assertTrue(GoogleAppsSdkUtils.retrieveUser(directoryClient, TEST_USER) == null);
     }
 }
