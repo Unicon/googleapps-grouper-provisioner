@@ -27,6 +27,7 @@ changeLog.consumer.google.domain=<the email domain of the Google accounts and gr
 changeLog.consumer.google.groupIdentifierExpression=${groupName}
 changeLog.consumer.google.subjectIdentifierExpression=${subjectId}
 ```
+>Note: the `google` part of the string is arbitrary and can be any value. It is the name of the provisioner. Multiple Google Provisioners can be defined, but duplicate sets of properties will need to be created and have unique provisioner names. This name is also used for the attribute that is assigned to groups and stems that should be sync'ed.
 
 The first items are created by following the instructions at [Perform Google Apps Domain-Wide Delegation of Authority](https://developers.google.com/admin-sdk/directory/v1/guides/delegation).
 The account will need to be given these grants: `https://www.googleapis.com/auth/admin.directory.user, https://www.googleapis.com/auth/admin.directory.group, https://www.googleapis.com/auth/apps.groups.settings`.
@@ -49,6 +50,29 @@ group name and will be replaced by a hyphen (-) if not replaced with something e
 1. Start the Grouper Shell with the loader option: `gsh -loader`
 
 ## Marking Stems and Groups for Sync
+
+The Google Provisioner uses an attribute assignment to determine which groups to sync. The attribute can be assigned to stems or to individual groups. The first time the provisioner starts up it will create the attribute. It will be put in the `etc:attribute:googleProvisioner` stem. The attribute will be named `syncToGoogle<provisioner_name>, where provisioner name matches the proerty set: `changeLog.consumer.*google*.class = edu.internet2.middleware.changelogconsumer.googleapps.GoogleAppsChangeLogConsumer`.
+
+### Assign the Attribute to the Stem
+Assigning `the etc:attribute:googleProvisioner:syncToGooglegoogle` to the stem `qsuob:testStem` can be done with:
+
+```java
+grouperSession = GrouperSession.startRootSession();
+groupStem = StemFinder.findByName(grouperSession, "qsuob:testStem", true);
+attrSync = AttributeDefNameFinder.findByName("etc:attribute:googleProvisioner:syncToGooglegoogle",true);
+groupStem.getAttributeDelegate().addAttribute(attrSync);
+```
+
+### Assign the Attribute to the Group
+Assigning `the etc:attribute:googleProvisioner:syncToGooglegoogle` to the group `qsuob:testGroup` can be done with:
+
+```java
+grouperSession = GrouperSession.startRootSession();
+groupTest = GroupFinder.findByName(grouperSession, "qsuob:testGroup", true);
+attrSync = AttributeDefNameFinder.findByName("etc:attribute:googleProvisioner:syncToGooglegoogle", true);
+groupTest.getAttributeDelegate().addAttribute(attrSync);
+```
+
 
 ## Acknowledgements
 These individuals have provided guidance through out the development process:
