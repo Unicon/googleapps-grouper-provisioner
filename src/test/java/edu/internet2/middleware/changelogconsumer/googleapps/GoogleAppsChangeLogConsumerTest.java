@@ -148,7 +148,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name)).thenReturn(groupName);
         when(addEntry.getContextId()).thenReturn("123456789");
 
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
         Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
@@ -165,7 +165,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(deleteEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name)).thenReturn(groupName);
         when(deleteEntry.getContextId()).thenReturn("123456789");
 
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
         assertTrue(GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName)) == null);
@@ -185,7 +185,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue)).thenReturn(NEW_TEST);
         when(addEntry.getContextId()).thenReturn("123456789");
 
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
         Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
@@ -211,7 +211,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
@@ -233,7 +233,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.setProvisionUsers(false);
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
@@ -255,7 +255,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId)).thenReturn(sourceId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.setProvisionUsers(true);
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
@@ -284,7 +284,7 @@ public class GoogleAppsChangeLogConsumerTest {
         when(addEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.sourceId)).thenReturn(sourceId);
         when(addEntry.getContextId()).thenReturn("123456789");
 
-        ArrayList changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 

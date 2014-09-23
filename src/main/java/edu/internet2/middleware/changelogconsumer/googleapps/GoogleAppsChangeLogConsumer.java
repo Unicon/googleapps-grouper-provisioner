@@ -21,8 +21,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -38,12 +37,18 @@ import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.Cache;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
 import edu.internet2.middleware.grouper.*;
+import edu.internet2.middleware.grouper.app.loader.GrouperLoaderConfig;
 import edu.internet2.middleware.grouper.attr.AttributeDef;
 import edu.internet2.middleware.grouper.attr.AttributeDefName;
 import edu.internet2.middleware.grouper.attr.AttributeDefType;
+import edu.internet2.middleware.grouper.attr.assign.AttributeAssign;
+import edu.internet2.middleware.grouper.attr.assign.AttributeAssignType;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefFinder;
 import edu.internet2.middleware.grouper.attr.finder.AttributeDefNameFinder;
 import edu.internet2.middleware.grouper.changeLog.*;
+import edu.internet2.middleware.grouper.internal.dao.QueryOptions;
+import edu.internet2.middleware.grouper.misc.GrouperDAOFactory;
+import edu.internet2.middleware.grouper.util.GrouperUtil;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.SubjectType;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
@@ -53,7 +58,8 @@ import org.apache.commons.lang.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import edu.internet2.middleware.grouper.app.loader.GrouperLoaderConfig;
+import edu.internet2.middleware.grouper.Stem.Scope;
+
 
 /**
  * A {@link ChangeLogConsumer} which provisions via Google Apps API.
@@ -73,18 +79,18 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     enum EventType {
 
         /** Process the add attribute assign value change log entry type. */
-        attributeAssignValue__addAttributeAssignValue {
+        attributeAssign__addAttributeAssign {
             /** {@inheritDoc} */
             public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
-                consumer.processAttributeAssignValueAdd(consumer, changeLogEntry);
+                consumer.processAttributeAssignAdd(consumer, changeLogEntry);
             }
         },
 
         /** Process the delete attribute assign value change log entry type. */
-        attributeAssignValue__deleteAttributeAssignValue {
+        attributeAssign__deleteAttributeAssign {
             /** {@inheritDoc} */
             public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
-                consumer.processAttributeAssignValueDelete(consumer, changeLogEntry);
+                consumer.processAttributeAssignDelete(consumer, changeLogEntry);
             }
         },
 
@@ -176,6 +182,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     /** Whether or not to de-provision users. */
     private boolean deprovisionUsers = false;
 
+    private String subjectGivenNameField;
+    private String subjectSurnameField;
+
     /** Google Directory service*/
     private Directory directory;
 
@@ -186,12 +195,14 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
     private AttributeDefName syncAttribute;
+
     private AddressFormatter addressFormatter = new AddressFormatter();
 
     //The Google Objects hang around a lot longer due to Google API constraints, so they are stored in a static GoogleCacheManager class.
     //Grouper ones are easier to refresh.
     private Cache<Subject> grouperSubjects = new Cache<Subject>();
     private Cache<edu.internet2.middleware.grouper.Group> grouperGroups = new Cache<edu.internet2.middleware.grouper.Group>();
+    private HashMap<String, String> syncedObjects = new HashMap<String, String>();
 
     /**
      * Return the {@link Directory}.
@@ -219,24 +230,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             final String serviceImpersonationUser =
                     GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "serviceImpersonationUser");
             LOG.debug("Google Apps Consumer - Setting Google serviceImpersonationUser to {}", serviceImpersonationUser);
-
-            String googleDomain =
-                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "domain");
-            LOG.debug("Google Apps Consumer - Setting Google domain to {}", googleDomain);
-
-            final String groupIdentifierExpression =
-                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "groupIdentifierExpression");
-            LOG.debug("Google Apps Consumer - Setting group identifier expression to {}", groupIdentifierExpression);
-
-            final String subjectIdentifierExpression =
-                    GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "subjectIdentifierExpression");
-            LOG.debug("Google Apps Consumer - Setting subject identifier expression to {}", subjectIdentifierExpression);
-
-
-            addressFormatter.setGroupIdentifierExpression(groupIdentifierExpression)
-                    .setSubjectIdentifierExpression(subjectIdentifierExpression)
-                    .setDomain(googleDomain);
-
             final GoogleCredential googleCredential = GoogleAppsSdkUtils.getGoogleCredential(serviceAccountEmail,
                     serviceAccountPKCS12FilePath, serviceImpersonationUser, httpTransport, JSON_FACTORY);
 
@@ -244,6 +237,35 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     .setApplicationName("Google Apps Grouper Provisioner")
                     .build();
         }
+
+        String googleDomain =
+                GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "domain");
+        LOG.debug("Google Apps Consumer - Setting Google domain to {}", googleDomain);
+
+        final String groupIdentifierExpression =
+                GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "groupIdentifierExpression");
+        LOG.debug("Google Apps Consumer - Setting groupIdentifierExpression to {}", groupIdentifierExpression);
+
+        final String subjectIdentifierExpression =
+                GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "subjectIdentifierExpression");
+        LOG.debug("Google Apps Consumer - Setting subjectIdentifierExpression to {}", subjectIdentifierExpression);
+
+        addressFormatter.setGroupIdentifierExpression(groupIdentifierExpression)
+                .setSubjectIdentifierExpression(subjectIdentifierExpression)
+                .setDomain(googleDomain);
+
+        provisionUsers =
+                GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "provisionUsers", false);
+        LOG.debug("Google Apps Consumer - Setting provisionUser to {}", provisionUsers);
+
+        subjectGivenNameField =
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectGivenNameField");
+        LOG.debug("Google Apps Consumer - Setting subjectGivenNameField to {}", subjectGivenNameField);
+
+        subjectSurnameField =
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectSurnameField");
+        LOG.debug("Google Apps Consumer - Setting subjectSurnameField to {}", subjectSurnameField);
+
 
         //TODO: make the cache settings properties
         GoogleCacheManager.googleUsers().setCacheValidity(30);
@@ -298,6 +320,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             grouperSession = GrouperSession.startRootSession();
             syncAttribute = getGoogleSyncAttribute();
+            cacheSynedObjects();
 
             // time context processing
             final StopWatch stopWatch = new StopWatch();
@@ -422,31 +445,88 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Add an attribute value.
+     * Add an attribute.
      *
      * @param consumer the change log consumer
      * @param changeLogEntry the change log entry
      */
-
-    protected void processAttributeAssignValueAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+    protected void processAttributeAssignAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", name,
                 toString(changeLogEntry));
 
+        final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.attributeDefNameId);
+        final String attributeDefName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.attributeDefNameName);
+        final String assignType = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.assignType);
+        final String ownerId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.ownerId1);
+
+        if (syncAttribute.getId().equalsIgnoreCase(attributeDefNameId)) {
+
+            if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.group) {
+                edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
+
+                try {
+                    createGroupIfNecessary(group);
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                }
+
+            } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
+                Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
+                Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
+
+                for (edu.internet2.middleware.grouper.Group group : groups) {
+                    try {
+                        createGroupIfNecessary(group);
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                    }
+                }
+            }
+        }
     }
 
     /**
-     * Delete an attribute value.
+     * Delete an attribute.
      *
      * @param consumer the change log consumer
      * @param changeLogEntry the change log entry
      */
-    protected void processAttributeAssignValueDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry)  {
+    protected void processAttributeAssignDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry)  {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing delete attribute assign value.", name,
                 toString(changeLogEntry));
-    }
 
+        final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.attributeDefNameId);
+        final String attributeDefName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.attributeDefNameName);
+        final String assignType = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.assignType);
+        final String ownerId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.ownerId1);
+
+        if (syncAttribute.getId().equalsIgnoreCase(attributeDefNameId)) {
+
+            if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.group) {
+                edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
+
+                try {
+                    deleteGroup(group);
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                }
+
+            } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
+                Stem stem = StemFinder.findByUuid(GrouperSession.staticGrouperSession(), ownerId, false);
+                Set<edu.internet2.middleware.grouper.Group> groups = stem.getChildGroups(Scope.SUB);
+
+                for (edu.internet2.middleware.grouper.Group group : groups) {
+                    try {
+                        deleteGroup(group);
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Add a group.
@@ -460,18 +540,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name);
 
-        edu.internet2.middleware.grouper.Group  grouperGroup = fetchGrouperGroup(groupName);
-        if (!shouldSyncGroup(grouperGroup)) {
+        edu.internet2.middleware.grouper.Group  group = fetchGrouperGroup(groupName);
+        if (!shouldSyncGroup(group)) {
             return;
         }
 
-        final Group googleGroup = new Group();
-        googleGroup.setName(grouperGroup.getDisplayExtension());
-        googleGroup.setEmail(addressFormatter.qualifyGroupAddress(groupName));
-        googleGroup.setDescription(grouperGroup.getDescription());
-
         try {
-            GoogleCacheManager.googleGroups().put(GoogleAppsSdkUtils.addGroup(directory, googleGroup));
+            createGroupIfNecessary(group);
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
         }
@@ -489,20 +564,15 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", name, toString(changeLogEntry));
 
-
-        //TODO: to archive or not to archive... that is the question!
-
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
-
         edu.internet2.middleware.grouper.Group  grouperGroup = fetchGrouperGroup(groupName);
+
         if (!shouldSyncGroup(grouperGroup)) {
             return;
         }
 
         try {
-            String groupKey = addressFormatter.qualifyGroupAddress(groupName);
-            GoogleAppsSdkUtils.removeGroup(directory, groupKey);
-            GoogleCacheManager.googleGroups().remove(groupKey);
+            deleteGroup(grouperGroup);
         } catch (IOException e) {
             LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", Arrays.asList(name, toString(changeLogEntry), e.getMessage()));
         }
@@ -527,7 +597,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             //TODO: Stem Change
             return;
         }
-
 
         edu.internet2.middleware.grouper.Group grouperGroup = fetchGrouperGroup(groupName);
         if (!shouldSyncGroup(grouperGroup)) {
@@ -568,20 +637,29 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
+        final edu.internet2.middleware.grouper.Group grouperGroup = fetchGrouperGroup(groupName);
+
+        if (!shouldSyncGroup(grouperGroup)) {
+            return;
+        }
+
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.sourceId);
-
         final Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
         final SubjectType subjectType = lookupSubject.getType();
 
         try {
             Group group = fetchGooGroup(addressFormatter.qualifyGroupAddress(groupName));
+            if (group == null) {
+                createGroupIfNecessary(grouperGroup);
+                group = fetchGooGroup(addressFormatter.qualifyGroupAddress(groupName));
+            }
 
             //For nested groups, ChangeLogEvents fire when the group is added, and also for each indirect user added,
             //so we only need to handle PERSON events.
             if (subjectType == SubjectTypeEnum.PERSON) {
                 User user = fetchGooUser(addressFormatter.qualifySubjectAddress(subjectId));
-                if (user == null && provisionUsers) {
+                if (user == null) {
                     user = createUser(lookupSubject);
                 }
 
@@ -603,13 +681,19 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param changeLogEntry the change log entry
      */
     protected void processMembershipDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership delete.", name,
                 toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupName);
+        final edu.internet2.middleware.grouper.Group grouperGroup = fetchGrouperGroup(groupName);
+
+        if (!shouldSyncGroup(grouperGroup)) {
+            return;
+        }
+
         final String subjectId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.subjectId);
         final String sourceId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.sourceId);
-
         final Subject lookupSubject = fetchGrouperSubject(sourceId, subjectId);
         final SubjectType subjectType = lookupSubject.getType();
 
@@ -619,6 +703,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             try {
                 Group group = fetchGooGroup(addressFormatter.qualifyGroupAddress(groupName));
                 GoogleAppsSdkUtils.removeGroupMember(directory, group.getEmail(), addressFormatter.qualifySubjectAddress(subjectId));
+
+                //FUTURE: If we decide to deprovision users we'd check the variable and initiate that here.
             } catch (IOException e) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
                         toString(changeLogEntry), e));
@@ -638,7 +724,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         final String stemName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_DELETE.name);
 
-        //TODO: Remove stem from cache
+        syncedObjects.remove(stemName);
     }
 
     /**
@@ -765,17 +851,21 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private User createUser(Subject subject) throws IOException {
         final String email = subject.getAttributeValue("email");
 
-        User newUser = new User();
-        newUser.setName(new UserName());
-        newUser.setPrimaryEmail(email != null? email : addressFormatter.qualifySubjectAddress(subject.getId()));
-        //TODO: Configure Subject API to use individual name components
-        newUser.getName().setFamilyName(subject.getName().split(" ")[1]);
-        newUser.getName().setGivenName(subject.getName().split(" ")[0]);
-        newUser.getName().setFullName(subject.getName());
-        newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+        User newUser = null;
+        if (provisionUsers) {
+            newUser = new User();
+            newUser.setName(new UserName());
+            newUser.setPrimaryEmail(email != null ? email : addressFormatter.qualifySubjectAddress(subject.getId()));
+            //TODO: Configure Subject API to use individual name components
+            newUser.getName().setFamilyName(subject.getName().split(" ")[1]);
+            newUser.getName().setGivenName(subject.getName().split(" ")[0]);
+            newUser.getName().setFullName(subject.getName());
+            newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
 
-        newUser = GoogleAppsSdkUtils.addUser(directory, newUser);
-        GoogleCacheManager.googleUsers().put(newUser);
+            newUser = GoogleAppsSdkUtils.addUser(directory, newUser);
+            GoogleCacheManager.googleUsers().put(newUser);
+        }
+
         return newUser;
     }
 
@@ -786,6 +876,47 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         GoogleAppsSdkUtils.addGroupMember(directory, group, gMember);
     }
+
+    private void createGroupIfNecessary(edu.internet2.middleware.grouper.Group grouperGroup) throws IOException {
+        final String groupKey = addressFormatter.qualifyGroupAddress(grouperGroup.getName());
+
+        Group googleGroup = fetchGooGroup(groupKey);
+        if (googleGroup == null) {
+            googleGroup = new Group();
+            googleGroup.setName(grouperGroup.getDisplayExtension());
+            googleGroup.setEmail(groupKey);
+            googleGroup.setDescription(grouperGroup.getDescription());
+
+            GoogleCacheManager.googleGroups().put(GoogleAppsSdkUtils.addGroup(directory, googleGroup));
+
+            Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getEffectiveMembers();
+            for (edu.internet2.middleware.grouper.Member member : members) {
+                Subject subject = fetchGrouperSubject(member.getSubjectId(), member.getSubjectSourceId());
+                String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
+                User user = fetchGooUser(userKey);
+
+                if (user == null) {
+                    user = createUser(subject);
+                }
+
+                if (user != null) {
+                    createMember(googleGroup, user, "MEMBER");
+                }
+            }
+        }
+    }
+
+    private void deleteGroup(edu.internet2.middleware.grouper.Group group) throws IOException {
+        //TODO: to archive or not to archive... that is the question!
+
+        String groupKey = addressFormatter.qualifyGroupAddress(group.getName());
+        GoogleAppsSdkUtils.removeGroup(directory, groupKey);
+        GoogleCacheManager.googleGroups().remove(groupKey);
+
+        grouperGroups.remove(groupKey);
+        syncedObjects.remove(group.getName());
+    }
+
 
     /**
      * Finds the AttributeDefName specific to this GoogleApps ChangeLog Consumer instance.
@@ -825,33 +956,73 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private boolean shouldSyncGroup(edu.internet2.middleware.grouper.Group group) {
         boolean result;
 
-        //TODO: Check Cache
+        final String groupName = group.getName();
 
-        if (group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0) {
-            result = true;
+        if (syncedObjects.containsKey(groupName)) {
+            if (syncedObjects.get(groupName).equalsIgnoreCase("yes")) {
+                result = true;
+            } else {
+                result = false;
+            }
         } else {
-            result = shouldSyncStem(group.getParentStem());
+            if (group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0) {
+                result = true;
+            } else {
+                result = shouldSyncStem(group.getParentStem());
+            }
+            syncedObjects.put(groupName, result ? "yes" : "no");
         }
 
-        //TODO: Cache Result
         return result;
     }
 
     private boolean shouldSyncStem(Stem stem) {
         boolean result;
 
-        //TODO: Check Cache
+        final String stemName = stem.getName();
 
-        if (stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0) {
-            result = true;
-        } else if (stem.isRootStem()) {
-            result = false;
+        if (syncedObjects.containsKey(stemName)) {
+            if (syncedObjects.get(stemName).equalsIgnoreCase("yes")) {
+                result = true;
+            } else {
+                result = false;
+            }
         } else {
-            result = shouldSyncStem(stem.getParentStem());
+            if (stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0) {
+                result = true;
+            } else if (stem.isRootStem()) {
+                result = false;
+            } else {
+                result = shouldSyncStem(stem.getParentStem());
+            }
+            syncedObjects.put(stemName, result ? "yes" : "no");
         }
 
-        //TODO: Cache Result
         return result;
+    }
+
+    private void cacheSynedObjects() {
+        ArrayList<String> ids = new ArrayList<String>();
+
+        Set<AttributeAssign> attributeAssigns = GrouperDAOFactory.getFactory()
+                .getAttributeAssign().findStemAttributeAssignments(null, null, GrouperUtil.toSet(syncAttribute.getId()), null, null, true, false);
+
+        for (AttributeAssign attributeAssign : attributeAssigns) {
+            ids.add(attributeAssign.getOwnerStemId());
+        }
+        Set<Stem> stems = StemFinder.findByUuids(GrouperSession.staticGrouperSession(), ids, new QueryOptions());
+        for (Stem stem : stems) {
+            syncedObjects.put(stem.getName(), "yes");
+        }
+
+        //Now for the Groups
+        attributeAssigns = GrouperDAOFactory.getFactory()
+                .getAttributeAssign().findGroupAttributeAssignments(null, null, GrouperUtil.toSet(syncAttribute.getId()), null, null, true, false);
+
+        for (AttributeAssign attributeAssign : attributeAssigns) {
+            edu.internet2.middleware.grouper.Group group = GroupFinder.findByUuid(GrouperSession.staticGrouperSession(), attributeAssign.getOwnerGroupId(), false);
+            syncedObjects.put(group.getName(), "yes");
+        }
     }
 
     /**

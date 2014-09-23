@@ -29,8 +29,8 @@ import edu.internet2.middleware.subject.Subject;
  * @author John Gasper, Unicon
  */
 public class GoogleCacheManager {
-    private static Cache googleUsers = new Cache<User>();
-    private static Cache googleGroups = new Cache<Group>();
+    private static Cache<User> googleUsers = new Cache<User>();
+    private static Cache<Group> googleGroups = new Cache<Group>();
 
     /**
      *
