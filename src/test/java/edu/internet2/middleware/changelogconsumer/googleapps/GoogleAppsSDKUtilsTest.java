@@ -89,7 +89,7 @@ public class GoogleAppsSdkUtilsTest {
                     SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_IMPERSONATION_USER,
                     httpTransport, JSON_FACTORY);
 
-        GoogleCredential googleGroupssettingsCredential = GoogleAppsSdkUtils.getGoogleDirectoryCredential(SERVICE_ACCOUNT_EMAIL,
+        GoogleCredential googleGroupssettingsCredential = GoogleAppsSdkUtils.getGoogleGroupssettingsCredential(SERVICE_ACCOUNT_EMAIL,
                 SERVICE_ACCOUNT_PKCS_12_FILE_PATH, SERVICE_IMPERSONATION_USER,
                 httpTransport, JSON_FACTORY);
 
@@ -245,8 +245,8 @@ public class GoogleAppsSdkUtilsTest {
         groupSettings.setShowInGroupDirectory("false");
 
         Groups result = GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, TEST_GROUP, groupSettings);
-        assertEquals(false, result.getShowInGroupDirectory());
-        assertEquals(false, GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, TEST_GROUP).getShowInGroupDirectory());
+        assertEquals("false", result.getShowInGroupDirectory());
+        assertEquals("false", GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, TEST_GROUP).getShowInGroupDirectory());
     }
 
     @Test
