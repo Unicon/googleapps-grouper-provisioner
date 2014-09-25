@@ -52,10 +52,8 @@ group name and will be replaced by a hyphen (-) if not replaced with something e
 
 ## Running
 1. Add the module and dependencies to the CLASSPATH:
-
   * On Linux: `export CLASSPATH=<PROJECT_HOME>/target/google-apps-provisioner-1.0-SNAPSHOT.jar:<PROJECT_HOME>/target/dependency/*`
   * On Windows: `set CLASSPATH=<PROJECT_HOME>/target/google-apps-provisioner-1.0-SNAPSHOT.jar;<PROJECT_HOME>/target/dependency/*`
-
 1. Start the Grouper Shell with the loader option: `gsh -loader`
 
 ## Marking Stems and Groups for Sync
