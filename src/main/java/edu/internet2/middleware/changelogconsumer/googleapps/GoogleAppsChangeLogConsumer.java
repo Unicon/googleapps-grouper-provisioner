@@ -198,9 +198,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     /** Google Groupssettings services client*/
     private Groupssettings groupssettingsClient;
 
-    /** Global instance of the HTTP transport. */
-    private HttpTransport httpTransport;
-
     /** Global instance of the JSON factory. */
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
@@ -213,6 +210,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private Cache<Subject> grouperSubjects = new Cache<Subject>();
     private Cache<edu.internet2.middleware.grouper.Group> grouperGroups = new Cache<edu.internet2.middleware.grouper.Group>();
     private HashMap<String, String> syncedObjects = new HashMap<String, String>();
+
+    public GoogleAppsChangeLogConsumer() {
+        LOG.debug("Google Apps Consumer - new");
+    }
 
     /**
      * Return the {@link Directory}.
@@ -233,7 +234,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     protected void initialize() throws GeneralSecurityException, IOException {
-        httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+        final HttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
 
         final String qualifiedParameterNamespace = PARAMETER_NAMESPACE + this.name + ".";
 
@@ -326,6 +327,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     @Override
     public long processChangeLogEntries(final List<ChangeLogEntry> changeLogEntryList,
                                         ChangeLogProcessorMetadata changeLogProcessorMetadata) {
+
+        LOG.debug("Google Apps Consumer - waking up");
 
         // the change log sequence number to return
         long sequenceNumber = -1;
@@ -484,7 +487,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 toString(changeLogEntry));
 
         final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.attributeDefNameId);
-        final String attributeDefName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.attributeDefNameName);
         final String assignType = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.assignType);
         final String ownerId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.ownerId1);
 
@@ -526,7 +528,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 toString(changeLogEntry));
 
         final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.attributeDefNameId);
-        final String attributeDefName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.attributeDefNameName);
         final String assignType = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.assignType);
         final String ownerId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.ownerId1);
 
@@ -991,10 +992,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String groupName = group.getName();
 
         if (syncedObjects.containsKey(groupName)) {
-            result = syncedObjects.get(groupName).equalsIgnoreCase("yes") ? true : false;
+            result = syncedObjects.get(groupName).equalsIgnoreCase("yes");
 
         } else {
-            result = group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 ? true : shouldSyncStem(group.getParentStem());
+            result = group.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || shouldSyncStem(group.getParentStem());
             syncedObjects.put(groupName, result ? "yes" : "no");
         }
 
@@ -1007,16 +1008,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String stemName = stem.getName();
 
         if (syncedObjects.containsKey(stemName)) {
-            result = syncedObjects.get(stemName).equalsIgnoreCase("yes") ? true : false;
+            result = syncedObjects.get(stemName).equalsIgnoreCase("yes");
 
         } else {
-            if (stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0) {
-                result = true;
-            } else if (stem.isRootStem()) {
-                result = false;
-            } else {
-                result = shouldSyncStem(stem.getParentStem());
-            }
+            result = stem.getAttributeDelegate().retrieveAssignments(syncAttribute).size() > 0 || !stem.isRootStem() && shouldSyncStem(stem.getParentStem());
+
             syncedObjects.put(stemName, result ? "yes" : "no");
         }
 
