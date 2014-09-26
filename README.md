@@ -8,7 +8,7 @@ Unicon's work on the Google Apps Grouper Provisioner project is funded through a
 ## Installation
 1. Download or clone the source repository from https://github.com/Unicon/googleapps-grouper-provisioner.
 
-1. Build the module and pull down dependencies by running `mvn clean dependency:copy-dependencies package -DskipTests -DincludeScope=runtime`.
+1. Build the module and pull down dependencies by running `mvn clean package dependency:copy-dependencies -DskipTests -DincludeScope=runtime`.
 
    This will download all of the transitive dependencies and place them in `target/dependencies`, and build the provisioner module at `target/google-apps-provisioner-1.0-SNAPSHOT.jar`. 
 
@@ -52,10 +52,8 @@ group name and will be replaced by a hyphen (-) if not replaced with something e
 
 ## Running
 1. Add the module and dependencies to the CLASSPATH:
-
-   On Linux: `export CLASSPATH=<PROJECT_HOME>/target/google-apps-provisioner-1.0-SNAPSHOT.jar:<PROJECT_HOME>/target/dependency/*`
-   On Windows: `set CLASSPATH=<PROJECT_HOME>/target/google-apps-provisioner-1.0-SNAPSHOT.jar;<PROJECT_HOME>/target/dependency/*`
-    
+  * On Linux: `export CLASSPATH=<PROJECT_HOME>/target/google-apps-provisioner-1.0-SNAPSHOT.jar:<PROJECT_HOME>/target/dependency/*`
+  * On Windows: `set CLASSPATH=<PROJECT_HOME>/target/google-apps-provisioner-1.0-SNAPSHOT.jar;<PROJECT_HOME>/target/dependency/*`
 1. Start the Grouper Shell with the loader option: `gsh -loader`
 
 ## Marking Stems and Groups for Sync
@@ -82,6 +80,10 @@ attrSync = AttributeDefNameFinder.findByName("etc:attribute:googleProvisioner:sy
 groupTest.getAttributeDelegate().addAttribute(attrSync);
 ```
 
+## Troubleshooting
+Properties errors will be listed in `grouper_error.log`. 
+
+To see debugging messages, add the line `log4j.logger.edu.internet2.middleware.changelogconsumer.googleapps = DEBUG, grouper_debug` to `GROUPER_HOME/config/log4j.properties`. Check the `grouper_debug.log` file.
 
 ## Acknowledgements
 These individuals have provided guidance through out the development process:
