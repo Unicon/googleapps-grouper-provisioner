@@ -621,18 +621,38 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String propertyOldValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue);
         final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue);
 
-        if (propertyChanged.equalsIgnoreCase("name")) {
-            //TODO: Stem Change
-            return;
-        }
-
-        edu.internet2.middleware.grouper.Group grouperGroup = fetchGrouperGroup(groupName);
-        if (!shouldSyncGroup(grouperGroup)) {
-            return;
-        }
+        Group group;
+        edu.internet2.middleware.grouper.Group grouperGroup;
 
         try {
-            Group group = fetchGooGroup(addressFormatter.qualifyGroupAddress(groupName));
+            //Group moves are a bit different than just a property change, let's take care of it now.
+            if (propertyChanged.equalsIgnoreCase("name")) {
+                String oldAddress = addressFormatter.qualifyGroupAddress(propertyOldValue);
+                String newAddress = addressFormatter.qualifyGroupAddress(propertyNewValue);
+
+                grouperGroup = fetchGrouperGroup(groupName);
+                group = fetchGooGroup(oldAddress);
+
+                if (group != null && shouldSyncGroup(grouperGroup)) {
+                    group.setEmail(newAddress);
+
+                    if (group.getAliases() == null) {
+                        group.setAliases(new ArrayList<String>(1));
+                    }
+
+                    group.getAliases().add(oldAddress);
+                }
+
+                GoogleAppsSdkUtils.updateGroup(directoryClient, oldAddress, group);
+                return;
+            }
+
+            grouperGroup = fetchGrouperGroup(groupName);
+            if (!shouldSyncGroup(grouperGroup)) {
+                return;
+            }
+
+            group = fetchGooGroup(addressFormatter.qualifyGroupAddress(groupName));
 
             if (propertyChanged.equalsIgnoreCase("displayExtension")) {
                 group.setName(propertyNewValue);

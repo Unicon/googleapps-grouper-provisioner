@@ -184,9 +184,8 @@ public class GoogleAppsChangeLogConsumerTest {
         ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
-
         pause(1000L);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
 
         assertNotNull(group);
         assertEquals(NEW_TEST, group.getName());
@@ -302,7 +301,27 @@ public class GoogleAppsChangeLogConsumerTest {
 
     @Test
     public void testProcessGroupsStemChange() throws GeneralSecurityException, IOException {
-        fail("Not Implemented");
+        try {
+            createTestGroup(groupDisplayName, groupName + "Change");
+        } catch (Exception ex) {}
+
+        ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
+        when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "updateGroup", ""));
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.name)).thenReturn(groupName);
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyChanged)).thenReturn("name");
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyOldValue)).thenReturn(groupName+"Change");
+        when(addEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyNewValue)).thenReturn(groupName);
+        when(addEntry.getContextId()).thenReturn("123456789");
+
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
+
+        consumer.processChangeLogEntries(changeLogEntryList, metadata);
+        pause(2000L);
+        Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
+
+        assertNotNull(group);
+        assertEquals(addressFormatter.qualifyGroupAddress(groupName).toLowerCase(), group.getEmail());
+        assertTrue(group.getAliases().contains(addressFormatter.qualifyGroupAddress(groupName+"Change")));
     }
 
     @Test

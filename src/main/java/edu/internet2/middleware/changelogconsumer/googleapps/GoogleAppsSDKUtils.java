@@ -219,7 +219,7 @@ public class GoogleAppsSdkUtils {
      * @throws IOException
      */
     public static com.google.api.services.groupssettings.model.Groups updateGroupSettings(Groupssettings groupssettingsClient, String groupKey, com.google.api.services.groupssettings.model.Groups groupSettings) throws IOException {
-        LOG.debug("updateGroup() - {}", groupKey);
+        LOG.debug("updateGroupsettings() - {}", groupKey);
 
         Groupssettings.Groups.Update request = null;
 
@@ -340,7 +340,7 @@ public class GoogleAppsSdkUtils {
      * @throws IOException
      */
     public static com.google.api.services.groupssettings.model.Groups retrieveGroupSettings(Groupssettings groupssettingClient, String groupKey) throws IOException {
-        LOG.debug("retrieveGroup() - {}", groupKey);
+        LOG.debug("retrieveGroupsettings() - {}", groupKey);
 
         Groupssettings.Groups.Get request = null;
 
