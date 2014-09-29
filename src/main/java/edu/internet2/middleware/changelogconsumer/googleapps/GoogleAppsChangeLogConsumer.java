@@ -642,7 +642,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                     group.getAliases().add(oldAddress);
 
-                    GoogleAppsSdkUtils.updateGroup(directoryClient, oldAddress, group);
+                    syncedObjects.remove(groupName);
+                    GoogleCacheManager.googleGroups().remove(oldAddress);
+                    GoogleCacheManager.googleGroups().put(GoogleAppsSdkUtils.updateGroup(directoryClient, oldAddress, group));
                 }
 
                 return;
