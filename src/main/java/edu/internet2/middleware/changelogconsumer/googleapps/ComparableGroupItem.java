@@ -18,6 +18,10 @@ public class ComparableGroupItem {
         this.grouperGroup = group;
     }
 
+    public String getName() {
+        return name;
+    }
+
     @Override
     public String toString() {
         return name;

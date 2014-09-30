@@ -371,18 +371,30 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 //Get our sets
                 Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleObjects, grouperObjects);
-                for (ComparableGroupItem comparableGroupItem : extraGroups) {
-                    LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, comparableGroupItem);
+                for (ComparableGroupItem item : extraGroups) {
+                    LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, item);
+
+                    if (!dryRun) {
+                        deleteGroupByEmail(item.getName());
+                    }
                 }
 
                 Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperObjects, googleObjects);
-                for (ComparableGroupItem comparableGroupItem : missingGroups) {
-                    LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, comparableGroupItem.getGrouperGroup().getName(), comparableGroupItem});
+                for (ComparableGroupItem item : missingGroups) {
+                    LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
+
+                    if (!dryRun) {
+                        createGroupIfNecessary(item.getGrouperGroup());
+                    }
                 }
 
                 Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperObjects, googleObjects);
                 for (ComparableGroupItem comparableGroupItem : matchedGroups) {
                     LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, comparableGroupItem.getGrouperGroup().getName(), comparableGroupItem});
+
+                    if (!dryRun) {
+
+                    }
                 }
 
                 // stop the timer and log
@@ -1020,8 +1032,18 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     private void deleteGroup(edu.internet2.middleware.grouper.Group group) throws IOException {
-        final String groupKey = addressFormatter.qualifyGroupAddress(group.getName());
+        deleteGroupByName(group.getName());
+    }
 
+    private void deleteGroupByName(String groupName) throws IOException {
+        final String groupKey = addressFormatter.qualifyGroupAddress(groupName);
+        deleteGroupByEmail(groupKey);
+
+        grouperGroups.remove(groupName);
+        syncedObjects.remove(groupName);
+    }
+
+    private void deleteGroupByEmail(String groupKey) throws IOException {
         if (handleDeletedGroup.equalsIgnoreCase("archive")) {
             Groups gs = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
             gs.setArchiveOnly("true");
@@ -1031,10 +1053,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             GoogleAppsSdkUtils.removeGroup(directoryClient, groupKey);
             GoogleCacheManager.googleGroups().remove(groupKey);
         }
-        //else "ignore" and we do nothing
+        //else "ignore" (we do nothing)
 
-        grouperGroups.remove(groupKey);
-        syncedObjects.remove(group.getName());
     }
 
 
