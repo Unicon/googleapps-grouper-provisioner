@@ -35,6 +35,7 @@ import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import com.google.api.services.admin.directory.model.UserName;
 import com.google.api.services.groupssettings.Groupssettings;
+import com.google.api.services.groupssettings.model.Groups;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.Cache;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
 import edu.internet2.middleware.grouper.*;
@@ -142,15 +143,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 consumer.processStemDelete(consumer, changeLogEntry);
             }
         },
-
-        /** Process the update stem change log entry type. */
-        stem__updateStem {
-            /** {@inheritDoc} */
-            public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
-                consumer.processStemUpdate(consumer, changeLogEntry);
-            }
-        },
-
         ;
 
         /**
@@ -178,10 +170,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private boolean retryOnError = false;
 
     /** Whether or not to provision users. */
-    private boolean provisionUsers = false;
+    private boolean provisionUsers;
 
     /** Whether or not to de-provision users. */
     private boolean deprovisionUsers = false;
+
+    /** Whether to not use "split" to parse name or the subject API is used to get the name, see subjectGivenNameField and subjectSurnameField */
+    private boolean simpleSubjectNaming;
 
     /** The givenName field to lookup with the Subject API */
     private String subjectGivenNameField;
@@ -283,6 +278,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "provisionUsers", false);
         LOG.debug("Google Apps Consumer - Setting provisionUser to {}", provisionUsers);
 
+        simpleSubjectNaming =
+                GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "simpleSubjectNaming", true);
+        LOG.debug("Google Apps Consumer - Setting simpleSubjectNaming to {}", simpleSubjectNaming);
+
         subjectGivenNameField =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectGivenNameField");
         LOG.debug("Google Apps Consumer - Setting subjectGivenNameField to {}", subjectGivenNameField);
@@ -291,22 +290,28 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectSurnameField");
         LOG.debug("Google Apps Consumer - Setting subjectSurnameField to {}", subjectSurnameField);
 
+        final int googleUserCacheValidity =
+                GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "googleUserCacheValidityPeriod", 30);
+        LOG.debug("Google Apps Consumer - Setting googleUserCacheValidityPeriod to {}", googleUserCacheValidity);
+
+        final int googleGroupCacheValidity =
+                GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "googleGroupCacheValidityPeriod", 30);
+        LOG.debug("Google Apps Consumer - Setting googleGroupCacheValidityPeriod to {}", googleGroupCacheValidity);
 
         handleDeletedGroup =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "handleDeletedGroup", "ignore");
         LOG.debug("Google Apps Consumer - Setting handleDeletedGroup to {}", handleDeletedGroup);
 
-        //TODO: make the cache settings properties
-        GoogleCacheManager.googleUsers().setCacheValidity(30);
+        GoogleCacheManager.googleUsers().setCacheValidity(googleUserCacheValidity);
         populateGooUsersCache(directoryClient);
 
-        GoogleCacheManager.googleGroups().setCacheValidity(30);
+        GoogleCacheManager.googleGroups().setCacheValidity(googleGroupCacheValidity);
         populateGooGroupsCache(directoryClient);
 
-        grouperSubjects.setCacheValidity(15);
+        grouperSubjects.setCacheValidity(5);
         grouperSubjects.seed(1000);
 
-        grouperGroups.setCacheValidity(15);
+        grouperGroups.setCacheValidity(5);
         grouperGroups.seed(100);
 
         // retry on error
@@ -779,23 +784,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     /**
-     * Update a stem.
-     *
-     * @param consumer the change log consumer
-     * @param changeLogEntry the change log entry
-     */
-    protected void processStemUpdate(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
-
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem update.", name, toString(changeLogEntry));
-
-        final String stemName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.name);
-        final String propertyChanged = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.propertyChanged);
-        final String propertyOldValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.propertyOldValue);
-        final String propertyNewValue = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_UPDATE.propertyNewValue);
-        //TODO:
-    }
-
-    /**
      * If true, retry a change log entry if an error occurs.
      *
      * @param retryOnError If true, retry a change log entry if an error occurs.
@@ -901,17 +889,27 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     private User createUser(Subject subject) throws IOException {
         final String email = subject.getAttributeValue("email");
+        final String subjectName = subject.getName();
 
         User newUser = null;
         if (provisionUsers) {
             newUser = new User();
-            newUser.setName(new UserName());
-            newUser.setPrimaryEmail(email != null ? email : addressFormatter.qualifySubjectAddress(subject.getId()));
-            //TODO: Configure Subject API to use individual name components
-            newUser.getName().setFamilyName(subject.getName().split(" ")[1]);
-            newUser.getName().setGivenName(subject.getName().split(" ")[0]);
-            newUser.getName().setFullName(subject.getName());
             newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
+            newUser.setPrimaryEmail(email != null ? email : addressFormatter.qualifySubjectAddress(subject.getId()));
+            newUser.setName(new UserName());
+            newUser.getName().setFullName(subjectName);
+
+            if (simpleSubjectNaming) {
+                final String[] subjectNameSplit = subjectName.split(" ");
+                newUser.getName().setFamilyName(subjectNameSplit[subjectNameSplit.length - 1]);
+                newUser.getName().setGivenName(subjectNameSplit[0]);
+
+            } else {
+                newUser.getName().setFamilyName(subject.getAttributeValue(subjectSurnameField));
+                newUser.getName().setGivenName(subject.getAttributeValue(subjectGivenNameField));
+            }
+
+
 
             newUser = GoogleAppsSdkUtils.addUser(directoryClient, newUser);
             GoogleCacheManager.googleUsers().put(newUser);
@@ -961,7 +959,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final String groupKey = addressFormatter.qualifyGroupAddress(group.getName());
 
         if (handleDeletedGroup.equalsIgnoreCase("archive")) {
-            //TODO: to archive
+            Groups gs = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
+            gs.setArchiveOnly("true");
+            GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, gs);
 
         } else if (handleDeletedGroup.equalsIgnoreCase("delete")) {
             GoogleAppsSdkUtils.removeGroup(directoryClient, groupKey);
