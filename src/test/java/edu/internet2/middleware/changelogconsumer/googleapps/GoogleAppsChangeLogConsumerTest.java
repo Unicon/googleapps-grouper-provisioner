@@ -257,7 +257,6 @@ public class GoogleAppsChangeLogConsumerTest {
 
         ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(addEntry));
 
-        consumer.setProvisionUsers(true);
         consumer.processChangeLogEntries(changeLogEntryList, metadata);
 
         List<Member> members = GoogleAppsSdkUtils.retrieveGroupMembers(directory, addressFormatter.qualifyGroupAddress(groupName));

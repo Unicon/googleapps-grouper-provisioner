@@ -23,6 +23,7 @@ import org.joda.time.DateTime;
 
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Set;
 
 /**
  * CacheObject supports Google User, Google Group, Grouper Subject, and Grouper Group objects.
@@ -94,5 +95,9 @@ public class Cache<T> {
 
     public boolean isExpired() {
         return cachePopulatedTime == null ? true : getExpiration().isBeforeNow();
+    }
+
+    public Set<String> getKeySet() {
+        return cache.keySet();
     }
 }

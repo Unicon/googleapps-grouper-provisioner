@@ -26,17 +26,27 @@ public class GoogleAppsFullSync {
 
     public static void main(String[] args) {
         if (args.length == 0 ) {
-            System.console().printf("a Google Change Log Consumer Name must be provided");
-            System.console().printf("consumerName [--dry-run]");
+            System.console().printf("Google Change Log Consumer Name must be provided\n");
+            System.console().printf("*nix: googleAppsFullSync.sh consumerName [--dry-run]\n");
+            System.console().printf("Windows: googleAppsFullSync.bat consumerName [--dry-run]\n");
+
             System.exit(-1);
         }
 
-        GoogleAppsFullSync fullSync = new GoogleAppsFullSync(args[0], args[1] != null && args[1].equalsIgnoreCase("--dry-run"));
+        GoogleAppsFullSync fullSync = new GoogleAppsFullSync(args[0], args.length > 1 && args[1].equalsIgnoreCase("--dry-run"));
     }
 
     public GoogleAppsFullSync(String googleChangeLogConsumerName, boolean dryRun) {
-        GoogleAppsChangeLogConsumer consumer = new GoogleAppsChangeLogConsumer();
-        consumer.fullSync(googleChangeLogConsumerName, dryRun);
+        try {
+            GoogleAppsChangeLogConsumer consumer = new GoogleAppsChangeLogConsumer();
+            consumer.fullSync(googleChangeLogConsumerName, dryRun);
+
+        } catch (Exception e) {
+            System.console().printf(e.toString() + ": \n");
+            e.printStackTrace();
+        }
+
+        System.exit(0);
     }
 
 

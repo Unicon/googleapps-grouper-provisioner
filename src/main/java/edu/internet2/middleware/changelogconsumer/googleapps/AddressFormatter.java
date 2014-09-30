@@ -48,7 +48,7 @@ public class AddressFormatter {
 
         final String mailbox = groupIdentifierExp.evaluate(context).toString();
 
-        return String.format("%s@%s", mailbox.replace(":", "-"), this.domain);
+        return String.format("%s@%s", mailbox.replace(":", "-").toLowerCase(), this.domain);
     }
 
     public AddressFormatter setGroupIdentifierExpression(String groupIdentifierExpression){

@@ -54,6 +54,7 @@ import edu.internet2.middleware.grouper.util.GrouperUtil;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.SubjectType;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 import org.apache.commons.lang.time.StopWatch;
@@ -332,19 +333,74 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             synchronized (fullSyncIsRunningLock) {
                 fullSyncIsRunning.put(name, Boolean.toString(true));
             }
+
+            //TODO: Full Sync
+
+            //Start with a clean cache
+            GoogleCacheManager.googleGroups().clear();
+            GoogleCacheManager.googleGroups().clear();
             initialize();
 
+            GrouperSession grouperSession = null;
+            try {
+                grouperSession = GrouperSession.startRootSession();
+                syncAttribute = getGoogleSyncAttribute();
+                cacheSynedObjects(true);
 
+                // time context processing
+                final StopWatch stopWatch = new StopWatch();
+                stopWatch.start();
 
+                //Populate a normalized list (google naming) of Grouper groups
+                ArrayList<ComparableGroupItem> grouperObjects = new ArrayList<ComparableGroupItem>();
+                for (String groupKey : syncedObjects.keySet()) {
+                    if (syncedObjects.get(groupKey).equalsIgnoreCase("yes")) {
+                        edu.internet2.middleware.grouper.Group group = fetchGrouperGroup(groupKey);
+
+                        if (group != null) {
+                            grouperObjects.add(new ComparableGroupItem(addressFormatter.qualifyGroupAddress(group.getName()), group));
+                        }
+                    }
+                }
+
+                //Populate a comparable list of Google groups
+                ArrayList<ComparableGroupItem> googleObjects = new ArrayList<ComparableGroupItem>();
+                for (String groupName : GoogleCacheManager.googleGroups().getKeySet()) {
+                    googleObjects.add(new ComparableGroupItem(groupName));
+                }
+
+                //Get our sets
+                Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleObjects, grouperObjects);
+                for (ComparableGroupItem comparableGroupItem : extraGroups) {
+                    LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, comparableGroupItem);
+                }
+
+                Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperObjects, googleObjects);
+                for (ComparableGroupItem comparableGroupItem : missingGroups) {
+                    LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, comparableGroupItem.getGrouperGroup().getName(), comparableGroupItem});
+                }
+
+                Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperObjects, googleObjects);
+                for (ComparableGroupItem comparableGroupItem : matchedGroups) {
+                    LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, comparableGroupItem.getGrouperGroup().getName(), comparableGroupItem});
+                }
+
+                // stop the timer and log
+                stopWatch.stop();
+                LOG.debug("Google Apps Consumer '{}' Full Sync - Processed, Elapsed time {}", new Object[] {name, stopWatch});
+
+            } finally {
+                GrouperSession.stopQuietly(grouperSession);
+
+                synchronized (fullSyncIsRunningLock) {
+                    fullSyncIsRunning.put(name, Boolean.toString(true));
+                }
+            }
 
         } catch (GeneralSecurityException e) {
             LOG.error("Google Apps Consumer '{}' FullSync - This consumer failed to initialize: {}", name, e.getMessage());
         } catch (IOException e) {
             LOG.error("Google Apps Consume '{}' Full Sync - This consumer failed to initialize: {}", name, e.getMessage());
-        } finally {
-            synchronized (fullSyncIsRunningLock) {
-                fullSyncIsRunning.put(name, Boolean.toString(true));
-            }
         }
     }
 
@@ -527,7 +583,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 try {
                     createGroupIfNecessary(group);
                 } catch (IOException e) {
-                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {name, toString(changeLogEntry), e});
                 }
 
             } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
@@ -538,7 +594,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     try {
                         createGroupIfNecessary(group);
                     } catch (IOException e) {
-                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {name, toString(changeLogEntry), e});
                     }
                 }
             }
@@ -568,7 +624,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 try {
                     deleteGroup(group);
                 } catch (IOException e) {
-                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {name, toString(changeLogEntry), e});
                 }
 
             } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
@@ -579,7 +635,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     try {
                         deleteGroup(group);
                     } catch (IOException e) {
-                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", Arrays.asList(name, toString(changeLogEntry), e));
+                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {name, toString(changeLogEntry), e});
                     }
                 }
             }
@@ -606,7 +662,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         try {
             createGroupIfNecessary(group);
         } catch (IOException e) {
-            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", Arrays.asList(name, toString(changeLogEntry), e));
+            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}",  new Object[] {name, toString(changeLogEntry), e});
         }
 
     }
@@ -631,7 +687,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         try {
             deleteGroup(grouperGroup);
         } catch (IOException e) {
-            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", Arrays.asList(name, toString(changeLogEntry), e.getMessage()));
+            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", new Object[] {name, toString(changeLogEntry), e.getMessage()});
         }
     }
 
@@ -694,7 +750,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             } else {
                 LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Unmapped group property updated {}.",
-                        Arrays.asList(name, toString(changeLogEntry)), propertyChanged);
+                        new Object[] {name, toString(changeLogEntry), propertyChanged});
             }
 
             GoogleCacheManager.googleGroups().put(GoogleAppsSdkUtils.updateGroup(directoryClient, addressFormatter.qualifyGroupAddress(groupName), group));
@@ -749,8 +805,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             }
 
         } catch (IOException e) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", Arrays.asList(name,
-                    toString(changeLogEntry), e));
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", new Object[] {name,
+                    toString(changeLogEntry), e});
         }
     }
 
@@ -789,8 +845,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     //FUTURE: check if the user has other memberships and if not, initiate the removal here.
                 }
             } catch (IOException e) {
-                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
-                        toString(changeLogEntry), e));
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", new Object[] {name,
+                        toString(changeLogEntry), e});
             }
         }
     }
@@ -826,16 +882,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
     }
 
-    /**
-     * Indicates if users should be provisioned if they aren't found in Google.
-     *
-     * @param provisionUsers If true, create missing users in Google
-     */
-    public void setProvisionUsers(boolean provisionUsers) {
-        this.provisionUsers = provisionUsers;
-    }
-
-
     private void populateGooGroupsCache(Directory directory) {
         LOG.debug("Google Apps Consumer '{}' - Populating the userCache.", name);
 
@@ -851,7 +897,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             }
         }
     }
-
 
     private Group fetchGooGroup(String groupKey) throws IOException {
         Group group = GoogleCacheManager.googleGroups().get(groupKey);
@@ -1062,6 +1107,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     }
 
     private void cacheSynedObjects() {
+       cacheSynedObjects(false);
+    }
+    private void cacheSynedObjects(boolean fullyPopulate) {
         /* Future: API 2.3.0 has support for getting a list of stems and groups using the Finder objects. */
 
         final ArrayList<String> ids = new ArrayList<String>();
@@ -1076,6 +1124,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final Set<Stem> stems = StemFinder.findByUuids(GrouperSession.staticGrouperSession(), ids, new QueryOptions());
         for (Stem stem : stems) {
             syncedObjects.put(stem.getName(), "yes");
+
+            if (fullyPopulate) {
+                for (edu.internet2.middleware.grouper.Group group : stem.getChildGroups(Scope.SUB)) {
+                    syncedObjects.put(group.getName(), "yes");
+                }
+            }
         }
 
         //Now for the Groups
