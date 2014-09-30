@@ -156,8 +156,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     }
 
-    /** Boolean used to delay change log processing when a full sync is running. */
-    private static boolean fullSyncIsRunning;
+    /** "Boolean" used to delay change log processing when a full sync is running. */
+    private static final HashMap<String, String> fullSyncIsRunning = new HashMap<String, String>();
+    private Object fullSyncIsRunningLock = new Object();
 
     /** Logger. */
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
@@ -319,6 +320,34 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
     }
 
+    /**
+     * Runs a fullSync.
+     * @param consumerName the consumerName
+     * @param dryRun indicates that this is dryRun
+     */
+    public void fullSync(String consumerName, boolean dryRun) {
+        this.name = consumerName;
+
+        try {
+            synchronized (fullSyncIsRunningLock) {
+                fullSyncIsRunning.put(name, Boolean.toString(true));
+            }
+            initialize();
+
+
+
+
+        } catch (GeneralSecurityException e) {
+            LOG.error("Google Apps Consumer '{}' FullSync - This consumer failed to initialize: {}", name, e.getMessage());
+        } catch (IOException e) {
+            LOG.error("Google Apps Consume '{}' Full Sync - This consumer failed to initialize: {}", name, e.getMessage());
+        } finally {
+            synchronized (fullSyncIsRunningLock) {
+                fullSyncIsRunning.put(name, Boolean.toString(true));
+            }
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public long processChangeLogEntries(final List<ChangeLogEntry> changeLogEntryList,
@@ -363,7 +392,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 sequenceNumber = changeLogEntry.getSequenceNumber();
 
                 // if full sync is running, return the previous sequence number to process this entry on the next run
-                if (fullSyncIsRunning) {
+                boolean isFullSyncRunning;
+                synchronized (fullSyncIsRunningLock) {
+                    isFullSyncRunning = fullSyncIsRunning.get(name) != null && Boolean.valueOf(fullSyncIsRunning.get(name));
+                }
+                if (isFullSyncRunning) {
                     LOG.info("Google Apps Consumer '{}' - Full sync is running, returning sequence number '{}'", name,
                             sequenceNumber - 1);
                     return sequenceNumber - 1;
