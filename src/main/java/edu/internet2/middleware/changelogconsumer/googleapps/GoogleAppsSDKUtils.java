@@ -59,7 +59,7 @@ public class GoogleAppsSdkUtils {
 
     /**
      * getGoogleDirectoryCredential creates a credential object that authenticates the REST API calls.
-     * @param serviceAccountEmail
+     * @param serviceAccountEmail the application's account email address provided by Google
      * @param serviceAccountPKCS12FilePath path of a private key (.p12) file provided by Google
      * @param serviceAccountUser a impersonation user account
      * @param httpTransport a httpTransport object
@@ -84,7 +84,7 @@ public class GoogleAppsSdkUtils {
 
     /**
      * getGoogleDirectoryCredential creates a credential object that authenticates the REST API calls.
-     * @param serviceAccountEmail
+     * @param serviceAccountEmail the application's account email address provided by Google
      * @param serviceAccountPKCS12FilePath path of a private key (.p12) file provided by Google
      * @param serviceAccountUser a impersonation user account
      * @param httpTransport a httpTransport object
@@ -173,7 +173,7 @@ public class GoogleAppsSdkUtils {
     /**
      * removeGroup removes a group from Google.
      * @param directoryClient a Directory client
-     * @param groupKey
+     * @param groupKey an identifier for a group (e-mail address is the most popular)
      * @throws IOException
      */
     public static void removeGroup(Directory directoryClient, String groupKey) throws IOException {
@@ -219,7 +219,7 @@ public class GoogleAppsSdkUtils {
      * @throws IOException
      */
     public static com.google.api.services.groupssettings.model.Groups updateGroupSettings(Groupssettings groupssettingsClient, String groupKey, com.google.api.services.groupssettings.model.Groups groupSettings) throws IOException {
-        LOG.debug("updateGroupsettings() - {}", groupKey);
+        LOG.debug("updateGroupssettings() - {}", groupKey);
 
         Groupssettings.Groups.Update request = null;
 
@@ -340,7 +340,7 @@ public class GoogleAppsSdkUtils {
      * @throws IOException
      */
     public static com.google.api.services.groupssettings.model.Groups retrieveGroupSettings(Groupssettings groupssettingClient, String groupKey) throws IOException {
-        LOG.debug("retrieveGroupsettings() - {}", groupKey);
+        LOG.debug("retrieveGroupssettings() - {}", groupKey);
 
         Groupssettings.Groups.Get request = null;
 
@@ -379,7 +379,7 @@ public class GoogleAppsSdkUtils {
                 members.addAll(currentPage.getMembers());
                 request.setPageToken(currentPage.getNextPageToken());
             } catch (NullPointerException ex) {
-
+                break;
             }
 
         } while (request.getPageToken() != null && request.getPageToken().length() > 0);

@@ -294,12 +294,6 @@ public class GoogleAppsChangeLogConsumerTest {
     }
 
     @Test
-    public void testProcessGroupMembershipSet() throws GeneralSecurityException, IOException {
-        fail("Not Implemented");
-        //TODO: Some should already exists and some shouldn't yet.
-    }
-
-    @Test
     public void testProcessGroupsStemChange() throws GeneralSecurityException, IOException {
         try {
             createTestGroup(groupDisplayName, groupName + "Change");

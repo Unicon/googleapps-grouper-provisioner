@@ -173,7 +173,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private boolean provisionUsers;
 
     /** Whether or not to de-provision users. */
-    private boolean deprovisionUsers = false;
+    private boolean deprovisionUsers;
 
     /** Whether to not use "split" to parse name or the subject API is used to get the name, see subjectGivenNameField and subjectSurnameField */
     private boolean simpleSubjectNaming;
@@ -183,6 +183,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     /** The surname field to lookup with the Subject API */
     private String subjectSurnameField;
+
+    /** should the provisioned users be in the GAL*/
+    private boolean includeUserInGlobalAddressList;
+
+    /** should the provisioned groups be in the GAL*/
+    private boolean includeGroupInGlobalAddressList;
 
     /** What to do with deleted Groups: archive, delete, ignore (default) */
     private String handleDeletedGroup;
@@ -208,24 +214,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     public GoogleAppsChangeLogConsumer() {
         LOG.debug("Google Apps Consumer - new");
-    }
-
-    /**
-     * Return the {@link Directory}.
-     *
-     * @return the Google Apps Directory (service) client object
-     */
-    protected Directory getDirectoryClient() {
-        return directoryClient;
-    }
-
-    /**
-     * Return the {@link Directory}.
-     *
-     * @return the Google Apps Groupssettings (service) client object
-     */
-    protected Groupssettings getGroupssettingClient() {
-        return groupssettingsClient;
     }
 
     protected void initialize() throws GeneralSecurityException, IOException {
@@ -278,16 +266,28 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "provisionUsers", false);
         LOG.debug("Google Apps Consumer - Setting provisionUser to {}", provisionUsers);
 
+        deprovisionUsers =
+                GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "deprovisionUsers", false);
+        LOG.debug("Google Apps Consumer - Setting deprovisionUser to {}", deprovisionUsers);
+
+        includeUserInGlobalAddressList =
+                GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "includeUserInGlobalAddressList", true);
+        LOG.debug("Google Apps Consumer - Setting includeUserInGlobalAddressList to {}", includeUserInGlobalAddressList);
+
+        includeGroupInGlobalAddressList =
+                GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "includeGroupInGlobalAddressList", true);
+        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", includeGroupInGlobalAddressList);
+
         simpleSubjectNaming =
                 GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "simpleSubjectNaming", true);
         LOG.debug("Google Apps Consumer - Setting simpleSubjectNaming to {}", simpleSubjectNaming);
 
         subjectGivenNameField =
-                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectGivenNameField");
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectGivenNameField", "givenName");
         LOG.debug("Google Apps Consumer - Setting subjectGivenNameField to {}", subjectGivenNameField);
 
         subjectSurnameField =
-                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectSurnameField");
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "subjectSurnameField" ,"sn");
         LOG.debug("Google Apps Consumer - Setting subjectSurnameField to {}", subjectSurnameField);
 
         final int googleUserCacheValidity =
@@ -317,15 +317,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         // retry on error
         retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "retryOnError", false);
         LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
-    }
-
-    /**
-     * Returns true if a change log entry should be retried upon error.
-     *
-     * @return Returns true if a change log entry should be retried upon error.
-     */
-    public boolean isRetryOnError() {
-        return retryOnError;
     }
 
     /** {@inheritDoc} */
@@ -760,7 +751,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 Group group = fetchGooGroup(addressFormatter.qualifyGroupAddress(groupName));
                 GoogleAppsSdkUtils.removeGroupMember(directoryClient, group.getEmail(), addressFormatter.qualifySubjectAddress(subjectId));
 
-                //FUTURE: If we decide to deprovision users we'd check the variable and initiate that here.
+
+                if (deprovisionUsers) {
+                    //FUTURE: check if the user has other memberships and if not, initiate the removal here.
+                }
             } catch (IOException e) {
                 LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", Arrays.asList(name,
                         toString(changeLogEntry), e));
@@ -783,21 +777,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         syncedObjects.remove(stemName);
     }
 
-    /**
-     * If true, retry a change log entry if an error occurs.
-     *
-     * @param retryOnError If true, retry a change log entry if an error occurs.
-     */
-    protected void setRetryOnError(boolean retryOnError) {
-        this.retryOnError = retryOnError;
-    }
-
     private void populateGooUsersCache(Directory directory) {
         LOG.debug("Google Apps Consumer '{}' - Populating the userCache.", name);
 
         if (GoogleCacheManager.googleUsers() == null || GoogleCacheManager.googleUsers().isExpired()) {
             try {
-                final List<User> list = GoogleAppsSdkUtils.retrieveAllUsers(getDirectoryClient());
+                final List<User> list = GoogleAppsSdkUtils.retrieveAllUsers(directoryClient);
                 GoogleCacheManager.googleUsers().seed(list);
 
             } catch (GoogleJsonResponseException e) {
@@ -823,7 +808,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         if (GoogleCacheManager.googleGroups() == null || GoogleCacheManager.googleGroups().isExpired()) {
             try {
-                final List<Group> list = GoogleAppsSdkUtils.retrieveAllGroups(getDirectoryClient());
+                final List<Group> list = GoogleAppsSdkUtils.retrieveAllGroups(directoryClient);
                 GoogleCacheManager.googleGroups().seed(list);
 
             } catch (GoogleJsonResponseException e) {
@@ -896,6 +881,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             newUser = new User();
             newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
             newUser.setPrimaryEmail(email != null ? email : addressFormatter.qualifySubjectAddress(subject.getId()));
+            newUser.setIncludeInGlobalAddressList(includeUserInGlobalAddressList);
             newUser.setName(new UserName());
             newUser.getName().setFullName(subjectName);
 
@@ -1080,7 +1066,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
         toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
         toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
-        toStringBuilder.append("actionname", changeLogEntry.getChangeLogType().getActionName());
+        toStringBuilder.append("actionName", changeLogEntry.getChangeLogType().getActionName());
         toStringBuilder.append("contextId", changeLogEntry.getContextId());
         return toStringBuilder.toString();
     }
@@ -1096,7 +1082,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
         toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
         toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
-        toStringBuilder.append("actionname", changeLogEntry.getChangeLogType().getActionName());
+        toStringBuilder.append("actionName", changeLogEntry.getChangeLogType().getActionName());
         toStringBuilder.append("contextId", changeLogEntry.getContextId());
 
         final ChangeLogType changeLogType = changeLogEntry.getChangeLogType();

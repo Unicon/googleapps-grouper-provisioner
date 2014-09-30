@@ -23,7 +23,8 @@ import org.apache.commons.jexl2.MapContext;
 import org.apache.commons.jexl2.UnifiedJEXL;
 
 /**
- * Created by jgasper on 9/18/14.
+ * Formats user and group addresses. Supports JEXL manipulations/evaluations
+ * @author John Gasper, Unicon
  */
 public class AddressFormatter {
     private final JexlEngine jexl = new JexlEngine();
