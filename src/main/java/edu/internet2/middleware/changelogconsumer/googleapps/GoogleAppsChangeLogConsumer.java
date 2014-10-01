@@ -334,8 +334,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 fullSyncIsRunning.put(name, Boolean.toString(true));
             }
 
-            //TODO: Full Sync
-
             //Start with a clean cache
             GoogleCacheManager.googleGroups().clear();
             GoogleCacheManager.googleGroups().clear();
@@ -389,11 +387,28 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 }
 
                 Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperObjects, googleObjects);
-                for (ComparableGroupItem comparableGroupItem : matchedGroups) {
-                    LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, comparableGroupItem.getGrouperGroup().getName(), comparableGroupItem});
+                for (ComparableGroupItem item : matchedGroups) {
+                    LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
 
                     if (!dryRun) {
+                        Group group = fetchGooGroup(item.getName());
+                        boolean updated = false;
 
+                        if (item.getGrouperGroup().getDescription().equalsIgnoreCase(group.getDescription())) {
+                            group.setDescription(item.getGrouperGroup().getDescription());
+                            updated = true;
+                        }
+
+                        if (item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(group.getName())) {
+                            group.setName(item.getGrouperGroup().getDisplayExtension());
+                            updated = true;
+                        }
+
+                        if (updated) {
+                            GoogleAppsSdkUtils.updateGroup(directoryClient, item.getName(), group);
+                        }
+
+                        //TODO: Examine Membership
                     }
                 }
 
@@ -543,9 +558,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     protected void processChangeLogEntry(ChangeLogEntry changeLogEntry) throws Exception {
         try {
             // find the method to run via the enum
-            final String enumKey =
-                    changeLogEntry.getChangeLogType().getChangeLogCategory() + "__"
-                            + changeLogEntry.getChangeLogType().getActionName();
+            final String enumKey = changeLogEntry.getChangeLogType().getChangeLogCategory() + "__"
+                    + changeLogEntry.getChangeLogType().getActionName();
 
             final EventType eventType = EventType.valueOf(enumKey);
 
@@ -1027,6 +1041,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 if (user != null) {
                     createMember(googleGroup, user, "MEMBER");
                 }
+            }
+        } else {
+            Groups groupssettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
+
+            if (groupssettings.getArchiveOnly().equalsIgnoreCase("true")) {
+                groupssettings.setArchiveOnly("false");
+                GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupssettings);
             }
         }
     }
