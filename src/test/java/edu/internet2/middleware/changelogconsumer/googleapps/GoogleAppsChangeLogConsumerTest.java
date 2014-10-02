@@ -316,7 +316,7 @@ public class GoogleAppsChangeLogConsumerTest {
         assertEquals(addressFormatter.qualifyGroupAddress(groupName).toLowerCase(), group.getEmail());
         assertTrue(group.getAliases().contains(addressFormatter.qualifyGroupAddress(groupName+"Change")));
     }
-
+/*
     @Test
     public void testProcessSyncAttributeAddedDirectly() throws GeneralSecurityException, IOException {
         fail("Not Implemented");
@@ -336,9 +336,8 @@ public class GoogleAppsChangeLogConsumerTest {
     public void testProcessSyncAttributeRemovedFromParent() throws GeneralSecurityException, IOException {
         fail("Not Implemented");
     }
-
-    /*
-    We don't need to worry about these since the membership and groups are managed
+*/
+/*
     @Test
     public void testProcessPrivilegeAdded() throws GeneralSecurityException, IOException {
         fail("Not Implemented");
@@ -353,7 +352,7 @@ public class GoogleAppsChangeLogConsumerTest {
     public void testProcessPrivilegeChange() throws GeneralSecurityException, IOException {
         fail("Not Implemented");
     }
-    */
+*/
 
 
     private Group createTestGroup(String name, String mailbox) throws IOException {
