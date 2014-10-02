@@ -51,13 +51,11 @@ public class GoogleAppsSdkUtilsTest {
     private static String SERVICE_ACCOUNT_PKCS_12_FILE_PATH;
     private static String SERVICE_IMPERSONATION_USER;
 
-    /** Global instance of the HTTP transport. */
+    /** Global instance of the HTTP transport & JSON Factory. */
     private static HttpTransport httpTransport;
-
-    /** Global instance of the JSON factory. */
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
-
+    /** Shared Instances of the client*/
     private static Directory directoryClient = null;
     private static Groupssettings groupssettingsClient = null;
 
@@ -154,8 +152,8 @@ public class GoogleAppsSdkUtilsTest {
     @Test
     public void testCreateGroup() throws GeneralSecurityException, IOException {
         Group group = new Group();
-        group.setName("Test Group");
-        group.setEmail(TEST_GROUP);
+        group.setName("Test Group")
+            .setEmail(TEST_GROUP);
 
         Group currentGroup = GoogleAppsSdkUtils.addGroup(directoryClient, group);
         assertEquals("Boom", currentGroup.getName(), group.getName());
@@ -208,8 +206,8 @@ public class GoogleAppsSdkUtilsTest {
     @Test
     public void testAddMember() throws GeneralSecurityException, IOException {
         Member member = new Member();
-        member.setRole("MEMBER");
-        member.setEmail(TEST_USER);
+        member.setRole("MEMBER")
+            .setEmail(TEST_USER);
 
         Group group = GoogleAppsSdkUtils.retrieveGroup(directoryClient, TEST_GROUP);
 

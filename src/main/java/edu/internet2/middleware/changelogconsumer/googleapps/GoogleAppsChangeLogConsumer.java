@@ -187,10 +187,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private String subjectSurnameField;
 
     /** should the provisioned users be in the GAL*/
-    private boolean includeUserInGlobalAddressList;
+    private Groups defaultGroupSettings = new Groups();
 
-    /** should the provisioned groups be in the GAL*/
-    private boolean includeGroupInGlobalAddressList;
+    /** should the provisioned users be in the GAL*/
+    private boolean includeUserInGlobalAddressList;
 
     /** What to do with deleted Groups: archive, delete, ignore (default) */
     private String handleDeletedGroup;
@@ -276,10 +276,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "includeUserInGlobalAddressList", true);
         LOG.debug("Google Apps Consumer - Setting includeUserInGlobalAddressList to {}", includeUserInGlobalAddressList);
 
-        includeGroupInGlobalAddressList =
-                GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "includeGroupInGlobalAddressList", true);
-        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", includeGroupInGlobalAddressList);
-
         simpleSubjectNaming =
                 GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "simpleSubjectNaming", true);
         LOG.debug("Google Apps Consumer - Setting simpleSubjectNaming to {}", simpleSubjectNaming);
@@ -303,6 +299,83 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         handleDeletedGroup =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "handleDeletedGroup", "ignore");
         LOG.debug("Google Apps Consumer - Setting handleDeletedGroup to {}", handleDeletedGroup);
+
+
+        defaultGroupSettings.setWhoCanViewMembership(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanViewMembership", "ALL_IN_DOMAIN_CAN_VIEW"));
+        LOG.debug("Google Apps Consumer - Setting whoCanViewMembership to {}", defaultGroupSettings.getWhoCanViewMembership());
+
+        defaultGroupSettings.setWhoCanInvite(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanInvite", "ALL_MANAGERS_CAN_INVITE"));
+        LOG.debug("Google Apps Consumer - Setting whoCanInvite to {}", defaultGroupSettings.getWhoCanInvite());
+
+        defaultGroupSettings.setAllowExternalMembers(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowExternalMembers", "false"));
+        LOG.debug("Google Apps Consumer - Setting allowExternalMembers to {}", defaultGroupSettings.getAllowExternalMembers());
+
+        defaultGroupSettings.setWhoCanPostMessage(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanPostMessage", "ALL_IN_DOMAIN_CAN_POST"));
+        LOG.debug("Google Apps Consumer - Setting whoCanPostMessage to {}", defaultGroupSettings.getWhoCanPostMessage());
+
+        defaultGroupSettings.setAllowWebPosting(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowWebPosting", "true"));
+        LOG.debug("Google Apps Consumer - Setting allowWebPosting to {}", defaultGroupSettings.getAllowWebPosting());
+
+        defaultGroupSettings.setPrimaryLanguage(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "primaryLanguage", "en"));
+        LOG.debug("Google Apps Consumer - Setting primaryLanguage to {}", defaultGroupSettings.getPrimaryLanguage());
+
+        defaultGroupSettings.setMaxMessageBytes(
+                GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "maxMessageBytes", 10240));
+        LOG.debug("Google Apps Consumer - Setting maxMessageBytes to {}", defaultGroupSettings.getMaxMessageBytes());
+
+        defaultGroupSettings.setIsArchived(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "isArchived", "true"));
+        LOG.debug("Google Apps Consumer - Setting isArchived to {}", defaultGroupSettings.getIsArchived());
+
+        defaultGroupSettings.setMessageModerationLevel(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "messageModerationLevel", "MODERATE_NONE"));
+        LOG.debug("Google Apps Consumer - Setting messageModerationLevel to {}", defaultGroupSettings.getMessageModerationLevel());
+
+        defaultGroupSettings.setSpamModerationLevel(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "spamModerationLevel", "ALLOW"));
+        LOG.debug("Google Apps Consumer - Setting spamModerationLevel to {}", defaultGroupSettings.getSpamModerationLevel());
+
+        defaultGroupSettings.setReplyTo(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "replyTo", "REPLY_TO_IGNORE"));
+        LOG.debug("Google Apps Consumer - Setting replyTo to {}", defaultGroupSettings.getReplyTo());
+
+        defaultGroupSettings.setCustomReplyTo(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "customReplyTo", ""));
+        LOG.debug("Google Apps Consumer - Setting customReplyTo to {}", defaultGroupSettings.getCustomReplyTo());
+
+        defaultGroupSettings.setSendMessageDenyNotification(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "sendMessageDenyNotification", "true"));
+        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", defaultGroupSettings.getSendMessageDenyNotification());
+
+        defaultGroupSettings.setDefaultMessageDenyNotificationText(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "defaultMessageDenyNotificationText", "Your message has been denied."));
+        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", defaultGroupSettings.getDefaultMessageDenyNotificationText());
+
+        defaultGroupSettings.setShowInGroupDirectory(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "showInGroupDirectory", "false"));
+        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", defaultGroupSettings.getShowInGroupDirectory());
+
+        defaultGroupSettings.setAllowGoogleCommunication(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "allowGoogleCommunication", "false"));
+        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", defaultGroupSettings.getAllowGoogleCommunication());
+
+        defaultGroupSettings.setMembersCanPostAsTheGroup(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "membersCanPostAsTheGroup", "false"));
+        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", defaultGroupSettings.getMembersCanPostAsTheGroup());
+
+        defaultGroupSettings.setMessageDisplayFont(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "messageDisplayFont", "DEFAULT_FONT"));
+        LOG.debug("Google Apps Consumer - Setting includeGroupInGlobalAddressList to {}", defaultGroupSettings.getMessageDisplayFont());
+
+        defaultGroupSettings.setIncludeInGlobalAddressList(
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "includeInGlobalAddressList", "true"));
+        LOG.debug("Google Apps Consumer - Setting includeInGlobalAddressList to {}", defaultGroupSettings.getIncludeInGlobalAddressList());
 
         GoogleCacheManager.googleUsers().setCacheValidity(googleUserCacheValidity);
         populateGooUsersCache(directoryClient);
@@ -346,168 +419,169 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
 
         GrouperSession grouperSession = null;
-            try {
-                grouperSession = GrouperSession.startRootSession();
-                syncAttribute = getGoogleSyncAttribute();
-                cacheSynedObjects(true);
 
-                // time context processing
-                final StopWatch stopWatch = new StopWatch();
-                stopWatch.start();
+        try {
+            grouperSession = GrouperSession.startRootSession();
+            syncAttribute = getGoogleSyncAttribute();
+            cacheSynedObjects(true);
 
-                //Populate a normalized list (google naming) of Grouper groups
-                ArrayList<ComparableGroupItem> grouperGroups = new ArrayList<ComparableGroupItem>();
-                for (String groupKey : syncedObjects.keySet()) {
-                    if (syncedObjects.get(groupKey).equalsIgnoreCase("yes")) {
-                        edu.internet2.middleware.grouper.Group group = fetchGrouperGroup(groupKey);
+            // time context processing
+            final StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
 
-                        if (group != null) {
-                            grouperGroups.add(new ComparableGroupItem(addressFormatter.qualifyGroupAddress(group.getName()), group));
-                        }
+            //Populate a normalized list (google naming) of Grouper groups
+            ArrayList<ComparableGroupItem> grouperGroups = new ArrayList<ComparableGroupItem>();
+            for (String groupKey : syncedObjects.keySet()) {
+                if (syncedObjects.get(groupKey).equalsIgnoreCase("yes")) {
+                    edu.internet2.middleware.grouper.Group group = fetchGrouperGroup(groupKey);
+
+                    if (group != null) {
+                        grouperGroups.add(new ComparableGroupItem(addressFormatter.qualifyGroupAddress(group.getName()), group));
                     }
-                }
-
-                //Populate a comparable list of Google groups
-                ArrayList<ComparableGroupItem> googleGroups = new ArrayList<ComparableGroupItem>();
-                for (String groupName : GoogleCacheManager.googleGroups().getKeySet()) {
-                    googleGroups.add(new ComparableGroupItem(groupName));
-                }
-
-                //Get our sets
-                Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleGroups, grouperGroups);
-                for (ComparableGroupItem item : extraGroups) {
-                    LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, item);
-
-                    if (!dryRun) {
-                        try {
-                            deleteGroupByEmail(item.getName());
-                        } catch (IOException e) {
-                            LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
-                        }
-                    }
-                }
-
-                Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperGroups, googleGroups);
-                for (ComparableGroupItem item : missingGroups) {
-                    LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
-
-                    if (!dryRun) {
-                        try {
-                            createGroupIfNecessary(item.getGrouperGroup());
-                        } catch (IOException e) {
-                            LOG.error("Google Apps Consume '{}' Full Sync - Error adding missing group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
-                        }
-                    }
-                }
-
-                Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperGroups, googleGroups);
-                for (ComparableGroupItem item : matchedGroups) {
-                    LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
-
-                    Group gooGroup = null;
-                    try {
-                        gooGroup = fetchGooGroup(item.getName());
-                    } catch (IOException e) {
-                        LOG.error("Google Apps Consume '{}' Full Sync - Error fetching matched group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
-                    }
-                    boolean updated = false;
-
-                    if (item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
-                        if (!dryRun) {
-                            gooGroup.setDescription(item.getGrouperGroup().getDescription());
-                            updated = true;
-                        }
-                    }
-
-                    if (item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
-                        if (!dryRun) {
-                            gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
-                            updated = true;
-                        }
-                    }
-
-                    if (updated) {
-                        try {
-                            GoogleAppsSdkUtils.updateGroup(directoryClient, item.getName(), gooGroup);
-                        } catch (IOException e) {
-                            LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
-                        }
-                    }
-
-                    //Retrieve & Examine Membership
-                    ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
-                    for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getEffectiveMembers()) {
-                        grouperMembers.add(new ComparableMemberItem(addressFormatter.qualifySubjectAddress(member.getSubjectId()), member));
-                    }
-
-                    ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
-                    List<Member> memberList = null;
-
-                    try {
-                        memberList = GoogleAppsSdkUtils.retrieveGroupMembers(directoryClient, item.getName());
-                    } catch (IOException e) {
-                        LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group({}): {}", new Object[]{name, item.getName(), e.getMessage()});
-                    }
-
-                    for (Member member : memberList) {
-                        googleMembers.add(new ComparableMemberItem(member.getEmail()));
-                    }
-
-                    Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
-                    for (ComparableMemberItem member : extraMembers) {
-                        if (!dryRun) {
-                            try {
-                                GoogleAppsSdkUtils.removeGroupMember(directoryClient, item.getName(), member.getEmail());
-                            } catch (IOException e) {
-                                LOG.error("Google Apps Consume '{}' Full Sync - Error removing member ({}) from matched group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
-                            }
-                        }
-                    }
-
-                    Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
-                    for (ComparableMemberItem member : missingMembers) {
-                        if (!dryRun) {
-                            Subject subject = fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
-                            User user = fetchGooUser(member.getEmail());
-
-                            if (user == null) {
-                                try {
-                                    user = createUser(subject);
-                                } catch (IOException e) {
-                                    LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing user ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
-                                }
-                            }
-
-                            if (user != null) {
-                                try {
-                                    createMember(gooGroup, user, "MEMBER");
-                                } catch (IOException e) {
-                                    LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing member ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
-                                }
-                            }
-                        }
-                    }
-
-                    Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
-                    for (ComparableMemberItem member : matchedMembers) {
-                        if (!dryRun) {
-                            //check the privilege level when implemented
-                        }
-                    }
-
-                }
-
-                // stop the timer and log
-                stopWatch.stop();
-                LOG.debug("Google Apps Consumer '{}' Full Sync - Processed, Elapsed time {}", new Object[] {name, stopWatch});
-
-            } finally {
-                GrouperSession.stopQuietly(grouperSession);
-
-                synchronized (fullSyncIsRunningLock) {
-                    fullSyncIsRunning.put(name, Boolean.toString(true));
                 }
             }
+
+            //Populate a comparable list of Google groups
+            ArrayList<ComparableGroupItem> googleGroups = new ArrayList<ComparableGroupItem>();
+            for (String groupName : GoogleCacheManager.googleGroups().getKeySet()) {
+                googleGroups.add(new ComparableGroupItem(groupName));
+            }
+
+            //Get our sets
+            Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleGroups, grouperGroups);
+            for (ComparableGroupItem item : extraGroups) {
+                LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, item);
+
+                if (!dryRun) {
+                    try {
+                        deleteGroupByEmail(item.getName());
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                    }
+                }
+            }
+
+            Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperGroups, googleGroups);
+            for (ComparableGroupItem item : missingGroups) {
+                LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
+
+                if (!dryRun) {
+                    try {
+                        createGroupIfNecessary(item.getGrouperGroup());
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error adding missing group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                    }
+                }
+            }
+
+            Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperGroups, googleGroups);
+            for (ComparableGroupItem item : matchedGroups) {
+                LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
+
+                Group gooGroup = null;
+                try {
+                    gooGroup = fetchGooGroup(item.getName());
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error fetching matched group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                }
+                boolean updated = false;
+
+                if (item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
+                    if (!dryRun) {
+                        gooGroup.setDescription(item.getGrouperGroup().getDescription());
+                        updated = true;
+                    }
+                }
+
+                if (item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
+                    if (!dryRun) {
+                        gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
+                        updated = true;
+                    }
+                }
+
+                if (updated) {
+                    try {
+                        GoogleAppsSdkUtils.updateGroup(directoryClient, item.getName(), gooGroup);
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                    }
+                }
+
+                //Retrieve & Examine Membership
+                ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
+                for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getEffectiveMembers()) {
+                    grouperMembers.add(new ComparableMemberItem(addressFormatter.qualifySubjectAddress(member.getSubjectId()), member));
+                }
+
+                ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
+                List<Member> memberList = null;
+
+                try {
+                    memberList = GoogleAppsSdkUtils.retrieveGroupMembers(directoryClient, item.getName());
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                }
+
+                for (Member member : memberList) {
+                    googleMembers.add(new ComparableMemberItem(member.getEmail()));
+                }
+
+                Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
+                for (ComparableMemberItem member : extraMembers) {
+                    if (!dryRun) {
+                        try {
+                            GoogleAppsSdkUtils.removeGroupMember(directoryClient, item.getName(), member.getEmail());
+                        } catch (IOException e) {
+                            LOG.error("Google Apps Consume '{}' Full Sync - Error removing member ({}) from matched group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                        }
+                    }
+                }
+
+                Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
+                for (ComparableMemberItem member : missingMembers) {
+                    if (!dryRun) {
+                        Subject subject = fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
+                        User user = fetchGooUser(member.getEmail());
+
+                        if (user == null) {
+                            try {
+                                user = createUser(subject);
+                            } catch (IOException e) {
+                                LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing user ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                            }
+                        }
+
+                        if (user != null) {
+                            try {
+                                createMember(gooGroup, user, "MEMBER");
+                            } catch (IOException e) {
+                                LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing member ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                            }
+                        }
+                    }
+                }
+
+                Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
+                for (ComparableMemberItem member : matchedMembers) {
+                    if (!dryRun) {
+                        //check the privilege level when implemented
+                    }
+                }
+
+            }
+
+            // stop the timer and log
+            stopWatch.stop();
+            LOG.debug("Google Apps Consumer '{}' Full Sync - Processed, Elapsed time {}", new Object[] {name, stopWatch});
+
+        } finally {
+            GrouperSession.stopQuietly(grouperSession);
+
+            synchronized (fullSyncIsRunningLock) {
+                fullSyncIsRunning.put(name, Boolean.toString(true));
+            }
+        }
 
        /* } catch (GeneralSecurityException e) {
             LOG.error("Google Apps Consumer '{}' FullSync - This consumer failed to initialize: {}", name, e.getMessage());
@@ -1070,20 +1144,20 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         User newUser = null;
         if (provisionUsers) {
             newUser = new User();
-            newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32));
-            newUser.setPrimaryEmail(email != null ? email : addressFormatter.qualifySubjectAddress(subject.getId()));
-            newUser.setIncludeInGlobalAddressList(includeUserInGlobalAddressList);
-            newUser.setName(new UserName());
-            newUser.getName().setFullName(subjectName);
+            newUser.setPassword(new BigInteger(130, new SecureRandom()).toString(32))
+                    .setPrimaryEmail(email != null ? email : addressFormatter.qualifySubjectAddress(subject.getId()))
+                    .setIncludeInGlobalAddressList(includeUserInGlobalAddressList)
+                    .setName(new UserName())
+                    .getName().setFullName(subjectName);
 
             if (simpleSubjectNaming) {
                 final String[] subjectNameSplit = subjectName.split(" ");
-                newUser.getName().setFamilyName(subjectNameSplit[subjectNameSplit.length - 1]);
-                newUser.getName().setGivenName(subjectNameSplit[0]);
+                newUser.getName().setFamilyName(subjectNameSplit[subjectNameSplit.length - 1])
+                                 .setGivenName(subjectNameSplit[0]);
 
             } else {
-                newUser.getName().setFamilyName(subject.getAttributeValue(subjectSurnameField));
-                newUser.getName().setGivenName(subject.getAttributeValue(subjectGivenNameField));
+                newUser.getName().setFamilyName(subject.getAttributeValue(subjectSurnameField))
+                                .setGivenName(subject.getAttributeValue(subjectGivenNameField));
             }
 
             newUser = GoogleAppsSdkUtils.addUser(directoryClient, newUser);
@@ -1095,8 +1169,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     private void createMember(Group group, User user, String role) throws IOException {
         final Member gMember = new Member();
-        gMember.setEmail(user.getPrimaryEmail());
-        gMember.setRole(role);
+        gMember.setEmail(user.getPrimaryEmail())
+                .setRole(role);
 
         GoogleAppsSdkUtils.addGroupMember(directoryClient, group, gMember);
     }
@@ -1107,11 +1181,32 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         Group googleGroup = fetchGooGroup(groupKey);
         if (googleGroup == null) {
             googleGroup = new Group();
-            googleGroup.setName(grouperGroup.getDisplayExtension());
-            googleGroup.setEmail(groupKey);
-            googleGroup.setDescription(grouperGroup.getDescription());
-
+            googleGroup.setName(grouperGroup.getDisplayExtension())
+                    .setEmail(groupKey)
+                    .setDescription(grouperGroup.getDescription());
             GoogleCacheManager.googleGroups().put(GoogleAppsSdkUtils.addGroup(directoryClient, googleGroup));
+
+            Groups groupSettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
+            groupSettings.setWhoCanViewMembership(defaultGroupSettings.getWhoCanViewMembership())
+                    .setWhoCanInvite(defaultGroupSettings.getWhoCanInvite())
+                    .setAllowExternalMembers(defaultGroupSettings.getAllowExternalMembers())
+                    .setWhoCanPostMessage(defaultGroupSettings.getWhoCanPostMessage())
+                    .setAllowWebPosting(defaultGroupSettings.getAllowWebPosting())
+                    .setPrimaryLanguage(defaultGroupSettings.getPrimaryLanguage())
+                    .setMaxMessageBytes(defaultGroupSettings.getMaxMessageBytes())
+                    .setIsArchived(defaultGroupSettings.getIsArchived())
+                    .setMessageModerationLevel(defaultGroupSettings.getMessageModerationLevel())
+                    .setSpamModerationLevel(defaultGroupSettings.getSpamModerationLevel())
+                    .setReplyTo(defaultGroupSettings.getReplyTo())
+                    .setCustomReplyTo(defaultGroupSettings.getCustomReplyTo())
+                    .setSendMessageDenyNotification(defaultGroupSettings.getSendMessageDenyNotification())
+                    .setDefaultMessageDenyNotificationText(defaultGroupSettings.getDefaultMessageDenyNotificationText())
+                    .setShowInGroupDirectory(defaultGroupSettings.getShowInGroupDirectory())
+                    .setAllowGoogleCommunication(defaultGroupSettings.getAllowGoogleCommunication())
+                    .setMembersCanPostAsTheGroup(defaultGroupSettings.getMembersCanPostAsTheGroup())
+                    .setMessageDisplayFont(defaultGroupSettings.getMessageDisplayFont())
+                    .setIncludeInGlobalAddressList(defaultGroupSettings.getIncludeInGlobalAddressList());
+            GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupSettings);
 
             Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getEffectiveMembers();
             for (edu.internet2.middleware.grouper.Member member : members) {
@@ -1276,11 +1371,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     private static String toString(ChangeLogEntry changeLogEntry) {
         final ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
-        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
-        toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
-        toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
-        toStringBuilder.append("actionName", changeLogEntry.getChangeLogType().getActionName());
-        toStringBuilder.append("contextId", changeLogEntry.getContextId());
+        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn())
+                .append("sequence", changeLogEntry.getSequenceNumber())
+                .append("category", changeLogEntry.getChangeLogType().getChangeLogCategory())
+                .append("actionName", changeLogEntry.getChangeLogType().getActionName())
+                .append("contextId", changeLogEntry.getContextId());
         return toStringBuilder.toString();
     }
 
@@ -1292,11 +1387,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     private static String toStringDeep(ChangeLogEntry changeLogEntry) {
         final ToStringBuilder toStringBuilder = new ToStringBuilder(changeLogEntry, ToStringStyle.SHORT_PREFIX_STYLE);
-        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn());
-        toStringBuilder.append("sequence", changeLogEntry.getSequenceNumber());
-        toStringBuilder.append("category", changeLogEntry.getChangeLogType().getChangeLogCategory());
-        toStringBuilder.append("actionName", changeLogEntry.getChangeLogType().getActionName());
-        toStringBuilder.append("contextId", changeLogEntry.getContextId());
+        toStringBuilder.append("timestamp", changeLogEntry.getCreatedOn())
+                .append("sequence", changeLogEntry.getSequenceNumber())
+                .append("category", changeLogEntry.getChangeLogType().getChangeLogCategory())
+                .append("actionName", changeLogEntry.getChangeLogType().getActionName())
+                .append("contextId", changeLogEntry.getContextId());
 
         final ChangeLogType changeLogType = changeLogEntry.getChangeLogType();
 
