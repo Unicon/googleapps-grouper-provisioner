@@ -453,10 +453,14 @@ public class GoogleAppsSdkUtils {
                     } catch (InterruptedException ie) {
                         LOG.debug("handleGoogleJsonResponseException() - {}", ie);
                     }
+                } else {
+                    LOG.error("handleGoogleJsonResponseException() - Unknown 403 error: {}", e);
                 }
+
                 break;
 
             case 404: //Not found
+                LOG.warn("handleGoogleJsonResponseException() - Not found: {}", e);
                 return true;
 
             case 503:
@@ -468,6 +472,8 @@ public class GoogleAppsSdkUtils {
                         LOG.debug("handleGoogleJsonResponseException() - {}", ie);
                     }
 
+                } else {
+                    LOG.debug("handleGoogleJsonResponseException() - Unknown 503 error: {}", e);
                 }
                 break;
 
