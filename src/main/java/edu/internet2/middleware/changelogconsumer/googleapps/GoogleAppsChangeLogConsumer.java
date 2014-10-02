@@ -329,17 +329,23 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     public void fullSync(String consumerName, boolean dryRun) {
         this.name = consumerName;
 
+        synchronized (fullSyncIsRunningLock) {
+            fullSyncIsRunning.put(name, Boolean.toString(true));
+        }
+
+        //Start with a clean cache
+        GoogleCacheManager.googleGroups().clear();
+        GoogleCacheManager.googleGroups().clear();
+
         try {
-            synchronized (fullSyncIsRunningLock) {
-                fullSyncIsRunning.put(name, Boolean.toString(true));
-            }
-
-            //Start with a clean cache
-            GoogleCacheManager.googleGroups().clear();
-            GoogleCacheManager.googleGroups().clear();
             initialize();
+        } catch (GeneralSecurityException e) {
+            LOG.error("Google Apps Consume '{}' Full Sync - This consumer failed to initialize: {}", name, e.getMessage());
+        } catch (IOException e) {
+            LOG.error("Google Apps Consume '{}' Full Sync - This consumer failed to initialize: {}", name, e.getMessage());
+        }
 
-            GrouperSession grouperSession = null;
+        GrouperSession grouperSession = null;
             try {
                 grouperSession = GrouperSession.startRootSession();
                 syncAttribute = getGoogleSyncAttribute();
@@ -373,7 +379,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, item);
 
                     if (!dryRun) {
-                        deleteGroupByEmail(item.getName());
+                        try {
+                            deleteGroupByEmail(item.getName());
+                        } catch (IOException e) {
+                            LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                        }
                     }
                 }
 
@@ -382,7 +392,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
 
                     if (!dryRun) {
-                        createGroupIfNecessary(item.getGrouperGroup());
+                        try {
+                            createGroupIfNecessary(item.getGrouperGroup());
+                        } catch (IOException e) {
+                            LOG.error("Google Apps Consume '{}' Full Sync - Error adding missing group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                        }
                     }
                 }
 
@@ -390,7 +404,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 for (ComparableGroupItem item : matchedGroups) {
                     LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
 
-                    Group gooGroup = fetchGooGroup(item.getName());
+                    Group gooGroup = null;
+                    try {
+                        gooGroup = fetchGooGroup(item.getName());
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error fetching matched group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                    }
                     boolean updated = false;
 
                     if (item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
@@ -408,7 +427,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     }
 
                     if (updated) {
-                        GoogleAppsSdkUtils.updateGroup(directoryClient, item.getName(), gooGroup);
+                        try {
+                            GoogleAppsSdkUtils.updateGroup(directoryClient, item.getName(), gooGroup);
+                        } catch (IOException e) {
+                            LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                        }
                     }
 
                     //Retrieve & Examine Membership
@@ -418,14 +441,26 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     }
 
                     ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
-                    for (Member member : GoogleAppsSdkUtils.retrieveGroupMembers(directoryClient, item.getName())) {
+                    List<Member> memberList = null;
+
+                    try {
+                        memberList = GoogleAppsSdkUtils.retrieveGroupMembers(directoryClient, item.getName());
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group({}): {}", new Object[]{name, item.getName(), e.getMessage()});
+                    }
+
+                    for (Member member : memberList) {
                         googleMembers.add(new ComparableMemberItem(member.getEmail()));
                     }
 
                     Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
                     for (ComparableMemberItem member : extraMembers) {
                         if (!dryRun) {
-                            GoogleAppsSdkUtils.removeGroupMember(directoryClient, item.getName(), member.getEmail());
+                            try {
+                                GoogleAppsSdkUtils.removeGroupMember(directoryClient, item.getName(), member.getEmail());
+                            } catch (IOException e) {
+                                LOG.error("Google Apps Consume '{}' Full Sync - Error removing member ({}) from matched group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                            }
                         }
                     }
 
@@ -436,11 +471,19 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                             User user = fetchGooUser(member.getEmail());
 
                             if (user == null) {
-                                user = createUser(subject);
+                                try {
+                                    user = createUser(subject);
+                                } catch (IOException e) {
+                                    LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing user ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                                }
                             }
 
                             if (user != null) {
-                                createMember(gooGroup, user, "MEMBER");
+                                try {
+                                    createMember(gooGroup, user, "MEMBER");
+                                } catch (IOException e) {
+                                    LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing member ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                                }
                             }
                         }
                     }
@@ -466,11 +509,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 }
             }
 
-        } catch (GeneralSecurityException e) {
+       /* } catch (GeneralSecurityException e) {
             LOG.error("Google Apps Consumer '{}' FullSync - This consumer failed to initialize: {}", name, e.getMessage());
         } catch (IOException e) {
             LOG.error("Google Apps Consume '{}' Full Sync - This consumer failed to initialize: {}", name, e.getMessage());
-        }
+        }*/
     }
 
     /** {@inheritDoc} */
@@ -977,10 +1020,14 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         return group;
     }
 
-    private User fetchGooUser(String userKey) throws IOException {
+    private User fetchGooUser(String userKey) {
         User user = GoogleCacheManager.googleUsers().get(userKey);
         if (user == null) {
-            user = GoogleAppsSdkUtils.retrieveUser(directoryClient, userKey);
+            try {
+                user = GoogleAppsSdkUtils.retrieveUser(directoryClient, userKey);
+            } catch (IOException e) {
+                LOG.warn("Google Apps Consume '{}' - Error fetching user ({}) from Google: {}", new Object[]{name, userKey, e.getMessage()});
+            }
 
             if (user != null) {
                 GoogleCacheManager.googleUsers().put(user);
