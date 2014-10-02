@@ -159,7 +159,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
     /** "Boolean" used to delay change log processing when a full sync is running. */
     private static final HashMap<String, String> fullSyncIsRunning = new HashMap<String, String>();
-    private Object fullSyncIsRunningLock = new Object();
+    private static final Object fullSyncIsRunningLock = new Object();
 
     /** Logger. */
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsChangeLogConsumer.class);
@@ -350,25 +350,25 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 stopWatch.start();
 
                 //Populate a normalized list (google naming) of Grouper groups
-                ArrayList<ComparableGroupItem> grouperObjects = new ArrayList<ComparableGroupItem>();
+                ArrayList<ComparableGroupItem> grouperGroups = new ArrayList<ComparableGroupItem>();
                 for (String groupKey : syncedObjects.keySet()) {
                     if (syncedObjects.get(groupKey).equalsIgnoreCase("yes")) {
                         edu.internet2.middleware.grouper.Group group = fetchGrouperGroup(groupKey);
 
                         if (group != null) {
-                            grouperObjects.add(new ComparableGroupItem(addressFormatter.qualifyGroupAddress(group.getName()), group));
+                            grouperGroups.add(new ComparableGroupItem(addressFormatter.qualifyGroupAddress(group.getName()), group));
                         }
                     }
                 }
 
                 //Populate a comparable list of Google groups
-                ArrayList<ComparableGroupItem> googleObjects = new ArrayList<ComparableGroupItem>();
+                ArrayList<ComparableGroupItem> googleGroups = new ArrayList<ComparableGroupItem>();
                 for (String groupName : GoogleCacheManager.googleGroups().getKeySet()) {
-                    googleObjects.add(new ComparableGroupItem(groupName));
+                    googleGroups.add(new ComparableGroupItem(groupName));
                 }
 
                 //Get our sets
-                Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleObjects, grouperObjects);
+                Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleGroups, grouperGroups);
                 for (ComparableGroupItem item : extraGroups) {
                     LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, item);
 
@@ -377,7 +377,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     }
                 }
 
-                Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperObjects, googleObjects);
+                Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperGroups, googleGroups);
                 for (ComparableGroupItem item : missingGroups) {
                     LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
 
@@ -386,30 +386,72 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     }
                 }
 
-                Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperObjects, googleObjects);
+                Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperGroups, googleGroups);
                 for (ComparableGroupItem item : matchedGroups) {
                     LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
 
-                    if (!dryRun) {
-                        Group group = fetchGooGroup(item.getName());
-                        boolean updated = false;
+                    Group gooGroup = fetchGooGroup(item.getName());
+                    boolean updated = false;
 
-                        if (item.getGrouperGroup().getDescription().equalsIgnoreCase(group.getDescription())) {
-                            group.setDescription(item.getGrouperGroup().getDescription());
+                    if (item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
+                        if (!dryRun) {
+                            gooGroup.setDescription(item.getGrouperGroup().getDescription());
                             updated = true;
                         }
-
-                        if (item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(group.getName())) {
-                            group.setName(item.getGrouperGroup().getDisplayExtension());
-                            updated = true;
-                        }
-
-                        if (updated) {
-                            GoogleAppsSdkUtils.updateGroup(directoryClient, item.getName(), group);
-                        }
-
-                        //TODO: Examine Membership
                     }
+
+                    if (item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
+                        if (!dryRun) {
+                            gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
+                            updated = true;
+                        }
+                    }
+
+                    if (updated) {
+                        GoogleAppsSdkUtils.updateGroup(directoryClient, item.getName(), gooGroup);
+                    }
+
+                    //Retrieve & Examine Membership
+                    ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
+                    for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getEffectiveMembers()) {
+                        grouperMembers.add(new ComparableMemberItem(addressFormatter.qualifySubjectAddress(member.getSubjectId()), member));
+                    }
+
+                    ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
+                    for (Member member : GoogleAppsSdkUtils.retrieveGroupMembers(directoryClient, item.getName())) {
+                        googleMembers.add(new ComparableMemberItem(member.getEmail()));
+                    }
+
+                    Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
+                    for (ComparableMemberItem member : extraMembers) {
+                        if (!dryRun) {
+                            GoogleAppsSdkUtils.removeGroupMember(directoryClient, item.getName(), member.getEmail());
+                        }
+                    }
+
+                    Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
+                    for (ComparableMemberItem member : missingMembers) {
+                        if (!dryRun) {
+                            Subject subject = fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
+                            User user = fetchGooUser(member.getEmail());
+
+                            if (user == null) {
+                                user = createUser(subject);
+                            }
+
+                            if (user != null) {
+                                createMember(gooGroup, user, "MEMBER");
+                            }
+                        }
+                    }
+
+                    Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
+                    for (ComparableMemberItem member : matchedMembers) {
+                        if (!dryRun) {
+                            //check the privilege level when implemented
+                        }
+                    }
+
                 }
 
                 // stop the timer and log
@@ -863,9 +905,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         //so we only need to handle PERSON events.
         if (subjectType == SubjectTypeEnum.PERSON) {
             try {
-                Group group = fetchGooGroup(addressFormatter.qualifyGroupAddress(groupName));
-                GoogleAppsSdkUtils.removeGroupMember(directoryClient, group.getEmail(), addressFormatter.qualifySubjectAddress(subjectId));
-
+                GoogleAppsSdkUtils.removeGroupMember(directoryClient, addressFormatter.qualifyGroupAddress(groupName), addressFormatter.qualifySubjectAddress(subjectId));
 
                 if (deprovisionUsers) {
                     //FUTURE: check if the user has other memberships and if not, initiate the removal here.
@@ -998,8 +1038,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 newUser.getName().setFamilyName(subject.getAttributeValue(subjectSurnameField));
                 newUser.getName().setGivenName(subject.getAttributeValue(subjectGivenNameField));
             }
-
-
 
             newUser = GoogleAppsSdkUtils.addUser(directoryClient, newUser);
             GoogleCacheManager.googleUsers().put(newUser);
