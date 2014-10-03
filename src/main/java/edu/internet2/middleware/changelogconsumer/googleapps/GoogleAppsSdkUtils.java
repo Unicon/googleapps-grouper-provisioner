@@ -245,7 +245,7 @@ public class GoogleAppsSdkUtils {
 
         Directory.Users.List request = null;
         try {
-            request = directoryClient.users().list().setCustomer("my_customer");
+            request = directoryClient.users().list().setCustomer("my_customer").setMaxResults(500);
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }
@@ -295,7 +295,7 @@ public class GoogleAppsSdkUtils {
 
         Directory.Groups.List request = null;
         try {
-            request = directoryClient.groups().list().setCustomer("my_customer");
+            request = directoryClient.groups().list().setCustomer("my_customer").setMaxResults(1000000);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -454,7 +454,7 @@ public class GoogleAppsSdkUtils {
                         LOG.debug("handleGoogleJsonResponseException() - {}", ie);
                     }
                 } else {
-                    LOG.error("handleGoogleJsonResponseException() - Unknown 403 error: {}", e);
+                    LOG.info("handleGoogleJsonResponseException() - Unknown 403 error: {}", e);
                 }
 
                 break;
