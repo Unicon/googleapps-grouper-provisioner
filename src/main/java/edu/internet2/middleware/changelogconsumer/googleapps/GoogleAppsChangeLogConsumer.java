@@ -486,14 +486,14 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 }
                 boolean updated = false;
 
-                if (item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
+                if (!item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
                     if (!dryRun) {
                         gooGroup.setDescription(item.getGrouperGroup().getDescription());
                         updated = true;
                     }
                 }
 
-                if (item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
+                if (!item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
                     if (!dryRun) {
                         gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
                         updated = true;
@@ -510,8 +510,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 //Retrieve & Examine Membership
                 ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
-                for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getEffectiveMembers()) {
-                    grouperMembers.add(new ComparableMemberItem(addressFormatter.qualifySubjectAddress(member.getSubjectId()), member));
+                for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
+                    if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+                        grouperMembers.add(new ComparableMemberItem(addressFormatter.qualifySubjectAddress(member.getSubjectId()), member));
+                    }
                 }
 
                 ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
@@ -529,6 +531,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
                 for (ComparableMemberItem member : extraMembers) {
+                    LOG.info("Google Apps Consume '{}' Full Sync - Removing extra member ({}) from matched group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
                     if (!dryRun) {
                         try {
                             GoogleAppsSdkUtils.removeGroupMember(directoryClient, item.getName(), member.getEmail());
@@ -540,6 +543,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
                 for (ComparableMemberItem member : missingMembers) {
+                    LOG.info("Google Apps Consume '{}' Full Sync - Creating missing user/member ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
                     if (!dryRun) {
                         Subject subject = fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
                         User user = fetchGooUser(member.getEmail());
@@ -1208,18 +1212,20 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     .setIncludeInGlobalAddressList(defaultGroupSettings.getIncludeInGlobalAddressList());
             GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupSettings);
 
-            Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getEffectiveMembers();
+            Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getMembers();
             for (edu.internet2.middleware.grouper.Member member : members) {
-                Subject subject = fetchGrouperSubject(member.getSubjectId(), member.getSubjectSourceId());
-                String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
-                User user = fetchGooUser(userKey);
+                if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+                    Subject subject = fetchGrouperSubject(member.getSubjectId(), member.getSubjectSourceId());
+                    String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
+                    User user = fetchGooUser(userKey);
 
-                if (user == null) {
-                    user = createUser(subject);
-                }
+                    if (user == null) {
+                        user = createUser(subject);
+                    }
 
-                if (user != null) {
-                    createMember(googleGroup, user, "MEMBER");
+                    if (user != null) {
+                        createMember(googleGroup, user, "MEMBER");
+                    }
                 }
             }
         } else {
