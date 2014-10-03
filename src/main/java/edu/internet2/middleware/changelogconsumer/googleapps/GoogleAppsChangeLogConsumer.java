@@ -450,7 +450,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             //Get our sets
             Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleGroups, grouperGroups);
             for (ComparableGroupItem item : extraGroups) {
-                LOG.info("Google Apps Consumer '{}' Full Sync - extra Google group: {}", name, item);
+                LOG.info("Google Apps Consumer '{}' Full Sync - removing extra Google group: {}", name, item);
 
                 if (!dryRun) {
                     try {
@@ -463,7 +463,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperGroups, googleGroups);
             for (ComparableGroupItem item : missingGroups) {
-                LOG.info("Google Apps Consumer '{}' Full Sync - missing Google group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
+                LOG.info("Google Apps Consumer '{}' Full Sync - adding missing Google group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
 
                 if (!dryRun) {
                     try {
@@ -476,7 +476,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperGroups, googleGroups);
             for (ComparableGroupItem item : matchedGroups) {
-                LOG.info("Google Apps Consumer '{}' Full Sync - matched group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
+                LOG.info("Google Apps Consumer '{}' Full Sync - examining matched group: {} ({})", new Object[] {name, item.getGrouperGroup().getName(), item});
 
                 Group gooGroup = null;
                 try {
@@ -531,7 +531,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
                 for (ComparableMemberItem member : extraMembers) {
-                    LOG.info("Google Apps Consume '{}' Full Sync - Removing extra member ({}) from matched group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                    LOG.info("Google Apps Consume '{}' Full Sync - Removing extra member ({}) from matched group ({})", new Object[]{name, member.getEmail(), item.getName()});
                     if (!dryRun) {
                         try {
                             GoogleAppsSdkUtils.removeGroupMember(directoryClient, item.getName(), member.getEmail());
@@ -543,7 +543,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
                 for (ComparableMemberItem member : missingMembers) {
-                    LOG.info("Google Apps Consume '{}' Full Sync - Creating missing user/member ({}) from extra group ({}): {}", new Object[]{name, member.getEmail(), item.getName(), e.getMessage()});
+                    LOG.info("Google Apps Consume '{}' Full Sync - Creating missing user/member ({}) from extra group ({}).", new Object[]{name, member.getEmail(), item.getName()});
                     if (!dryRun) {
                         Subject subject = fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
                         User user = fetchGooUser(member.getEmail());
