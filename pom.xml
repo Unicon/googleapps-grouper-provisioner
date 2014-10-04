@@ -70,13 +70,23 @@
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-admin-directory</artifactId>
             <version>${google-api-services-admin-directory.version}</version>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-groupssettings</artifactId>
             <version>${google-api-services-groupssettings.version}</version>
+            <scope>compile</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.hibernate</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>${hibernate-core.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
 
         <dependency>
             <groupId>org.mockito</groupId>
@@ -105,13 +115,6 @@
             <groupId>org.powermock</groupId>
             <artifactId>powermock-module-junit4</artifactId>
             <version>${powermock.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.hibernate</groupId>
-            <artifactId>hibernate-core</artifactId>
-            <version>${hibernate-core.version}</version>
             <scope>test</scope>
         </dependency>
 

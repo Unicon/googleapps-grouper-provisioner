@@ -30,9 +30,6 @@ import com.google.api.services.admin.directory.model.Groups;
 import com.google.api.services.groupssettings.Groupssettings;
 import com.google.api.services.groupssettings.GroupssettingsRequest;
 import com.google.api.services.groupssettings.GroupssettingsScopes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -40,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * GoogleAppsSdkUtils is a helper class that interfaces with the Google SDK Admin API and handles exponential back-off.
@@ -198,7 +197,7 @@ public class GoogleAppsSdkUtils {
      * @throws IOException
      */
     public static Group updateGroup(Directory directoryClient, String groupKey, Group group) throws IOException {
-        LOG.debug("updateGroup() - {}", group);
+        LOG.debug("updateGooGroup() - {}", group);
 
         Directory.Groups.Update request = null;
 

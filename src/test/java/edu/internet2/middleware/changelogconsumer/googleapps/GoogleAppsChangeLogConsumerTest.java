@@ -35,6 +35,7 @@ import com.google.api.services.admin.directory.model.Member;
 import com.google.api.services.admin.directory.model.User;
 import com.google.api.services.admin.directory.model.UserName;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
+import edu.internet2.middleware.changelogconsumer.googleapps.utils.AddressFormatter;
 import edu.internet2.middleware.grouper.changeLog.*;
 import edu.internet2.middleware.subject.Subject;
 import java.io.IOException;
@@ -150,21 +151,6 @@ public class GoogleAppsChangeLogConsumerTest {
         Group group = GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName));
         assertNotNull(group);
         assertTrue(group.getName().equalsIgnoreCase(groupDisplayName));
-    }
-
-    @Test
-    public void testProcessGroupDelete() throws GeneralSecurityException, IOException {
-        createTestGroup(groupDisplayName, groupName);
-
-        ChangeLogEntry deleteEntry = mock(ChangeLogEntry.class);
-        when(deleteEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "deleteGroup", ""));
-        when(deleteEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name)).thenReturn(groupName);
-        when(deleteEntry.getContextId()).thenReturn("123456789");
-
-        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
-
-        consumer.processChangeLogEntries(changeLogEntryList, metadata);
-        assertTrue(GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName)) == null);
     }
 
     @Test
@@ -316,6 +302,22 @@ public class GoogleAppsChangeLogConsumerTest {
         assertEquals(addressFormatter.qualifyGroupAddress(groupName).toLowerCase(), group.getEmail());
         assertTrue(group.getAliases().contains(addressFormatter.qualifyGroupAddress(groupName+"Change")));
     }
+
+    @Test
+    public void testProcessGroupDelete() throws GeneralSecurityException, IOException {
+        createTestGroup(groupDisplayName, groupName);
+
+        ChangeLogEntry deleteEntry = mock(ChangeLogEntry.class);
+        when(deleteEntry.getChangeLogType()).thenReturn(new ChangeLogType("group", "deleteGroup", ""));
+        when(deleteEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name)).thenReturn(groupName);
+        when(deleteEntry.getContextId()).thenReturn("123456789");
+
+        ArrayList<ChangeLogEntry> changeLogEntryList = new ArrayList<ChangeLogEntry>(Arrays.asList(deleteEntry));
+
+        consumer.processChangeLogEntries(changeLogEntryList, metadata);
+        assertTrue(GoogleAppsSdkUtils.retrieveGroup(directory, addressFormatter.qualifyGroupAddress(groupName)) == null);
+    }
+
 /*
     @Test
     public void testProcessSyncAttributeAddedDirectly() throws GeneralSecurityException, IOException {

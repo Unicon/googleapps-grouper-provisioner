@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package edu.internet2.middleware.changelogconsumer.googleapps;
+package edu.internet2.middleware.changelogconsumer.googleapps.utils;
 
 import org.apache.commons.jexl2.JexlContext;
 import org.apache.commons.jexl2.JexlEngine;

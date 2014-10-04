@@ -17,6 +17,7 @@
 
 package edu.internet2.middleware.changelogconsumer.googleapps;
 
+import edu.internet2.middleware.changelogconsumer.googleapps.utils.AddressFormatter;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 

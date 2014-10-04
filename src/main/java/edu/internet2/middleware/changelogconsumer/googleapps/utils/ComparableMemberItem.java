@@ -1,4 +1,4 @@
-package edu.internet2.middleware.changelogconsumer.googleapps;
+package edu.internet2.middleware.changelogconsumer.googleapps.utils;
 
 import edu.internet2.middleware.grouper.Member;
 
