@@ -257,7 +257,7 @@ public class GoogleGrouperConnector {
         gMember.setEmail(user.getPrimaryEmail())
                 .setRole(role);
 
-        GoogleAppsSdkUtils.addGroupMember(directoryClient, group, gMember);
+        GoogleAppsSdkUtils.addGroupMember(directoryClient, group.getEmail(), gMember);
     }
 
     public void createGooGroupIfNecessary(edu.internet2.middleware.grouper.Group grouperGroup) throws IOException {
@@ -294,28 +294,29 @@ public class GoogleGrouperConnector {
                     .setIncludeInGlobalAddressList(defaultGroupSettings.getIncludeInGlobalAddressList());
             GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupSettings);
 
-            Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getMembers();
-            for (edu.internet2.middleware.grouper.Member member : members) {
-                if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
-                    Subject subject = fetchGrouperSubject(member.getSubjectSourceId(), member.getSubjectId());
-                    String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
-                    User user = fetchGooUser(userKey);
-
-                    if (user == null) {
-                        user = createGooUser(subject);
-                    }
-
-                    if (user != null) {
-                        createGooMember(googleGroup, user, "MEMBER");
-                    }
-                }
-            }
         } else {
             Groups groupssettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
 
             if (groupssettings.getArchiveOnly().equalsIgnoreCase("true")) {
                 groupssettings.setArchiveOnly("false");
                 GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupssettings);
+            }
+        }
+
+        Set<edu.internet2.middleware.grouper.Member> members = grouperGroup.getMembers();
+        for (edu.internet2.middleware.grouper.Member member : members) {
+            if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+                Subject subject = fetchGrouperSubject(member.getSubjectSourceId(), member.getSubjectId());
+                String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
+                User user = fetchGooUser(userKey);
+
+                if (user == null) {
+                    user = createGooUser(subject);
+                }
+
+                if (user != null) {
+                    createGooMember(googleGroup, user, "MEMBER");
+                }
             }
         }
     }

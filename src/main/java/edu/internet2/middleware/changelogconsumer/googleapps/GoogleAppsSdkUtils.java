@@ -252,7 +252,10 @@ public class GoogleAppsSdkUtils {
         do { //continue until we have all the pages read in.
             Users currentPage = (Users)execute(request);
 
-            allUsers.addAll(currentPage.getUsers());
+            final List<User> users = currentPage.getUsers();
+            if (users != null) {
+                allUsers.addAll(users);
+            }
             request.setPageToken(currentPage.getNextPageToken());
 
         } while (request.getPageToken() != null && request.getPageToken().length() > 0);
@@ -302,7 +305,10 @@ public class GoogleAppsSdkUtils {
         do { //continue until we have all the pages read in.
             final Groups currentPage = (Groups)execute(request);
 
-            allGroups.addAll(currentPage.getGroups());
+            final List<Group> groups = currentPage.getGroups();
+            if (groups != null) {
+                allGroups.addAll(groups);
+            }
             request.setPageToken(currentPage.getNextPageToken());
 
         } while (request.getPageToken() != null && request.getPageToken().length() > 0);
@@ -362,7 +368,7 @@ public class GoogleAppsSdkUtils {
     public static List<Member> retrieveGroupMembers(Directory directoryClient, String groupKey) throws IOException {
         LOG.debug("retrieveGroupMembers() - {}", groupKey);
 
-        final List<Member> members = new ArrayList<Member>();
+        final List<Member> groupMembers = new ArrayList<Member>();
 
         Directory.Members.List request = null;
         try {
@@ -375,7 +381,11 @@ public class GoogleAppsSdkUtils {
             try {
                 final Members currentPage = (Members) execute(request);
 
-                members.addAll(currentPage.getMembers());
+                final List<Member> members = currentPage.getMembers();
+                if (members != null) {
+                    groupMembers.addAll(members);
+                }
+
                 request.setPageToken(currentPage.getNextPageToken());
             } catch (NullPointerException ex) {
                 break;
@@ -383,24 +393,24 @@ public class GoogleAppsSdkUtils {
 
         } while (request.getPageToken() != null && request.getPageToken().length() > 0);
 
-        return members;
+        return groupMembers;
     }
 
     /**
      * addGroupMember add an additional member to a group.
      * @param directoryClient a Directory client
-     * @param group a Group object
+     * @param groupKey an identifier for a group (e-mail address is the most popular)
      * @param member a Member object
      * @return a Member object stored on Google.
      * @throws IOException
      */
-    public static Member addGroupMember(Directory directoryClient, Group group, Member member) throws IOException {
-        LOG.debug("addGroupMember() - add {} to {}", member, group);
+    public static Member addGroupMember(Directory directoryClient, String groupKey, Member member) throws IOException {
+        LOG.debug("addGroupMember() - add {} to {}", member, groupKey);
 
         Directory.Members.Insert request = null;
 
         try {
-            request = directoryClient.members().insert(group.getId(), member);
+            request = directoryClient.members().insert(groupKey, member);
         } catch (IOException e) {
             LOG.error("An unknown error occurred: " + e);
         }

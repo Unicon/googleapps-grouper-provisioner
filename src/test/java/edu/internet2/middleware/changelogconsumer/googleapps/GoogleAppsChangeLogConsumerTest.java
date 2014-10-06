@@ -260,7 +260,7 @@ public class GoogleAppsChangeLogConsumerTest {
         Member member = new Member()
                 .setEmail(addressFormatter.qualifySubjectAddress(subjectId))
                 .setRole("MEMBER");
-        GoogleAppsSdkUtils.addGroupMember(directory, group, member);
+        GoogleAppsSdkUtils.addGroupMember(directory, group.getEmail(), member);
 
         ChangeLogEntry addEntry = mock(ChangeLogEntry.class);
         when(addEntry.getChangeLogType()).thenReturn(new ChangeLogType("membership", "deleteMembership", ""));

@@ -60,11 +60,15 @@ public class Cache<T> {
     public void seed(List<T> items) {
         cache = new Hashtable<String, T>(items.size() + 100);
 
-        for (T item : items) {
-            cache.put(getId(item), item);
-        }
+        if (items == null) {
+            seed(100);
+        } else {
+            for (T item : items) {
+                cache.put(getId(item), item);
+            }
 
-        cachePopulatedTime = new DateTime();
+            cachePopulatedTime = new DateTime();
+        }
     }
 
     public int size() {

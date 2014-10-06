@@ -209,9 +209,7 @@ public class GoogleAppsSdkUtilsTest {
         member.setRole("MEMBER")
             .setEmail(TEST_USER);
 
-        Group group = GoogleAppsSdkUtils.retrieveGroup(directoryClient, TEST_GROUP);
-
-        Member currentMember = GoogleAppsSdkUtils.addGroupMember(directoryClient, group, member);
+        Member currentMember = GoogleAppsSdkUtils.addGroupMember(directoryClient, TEST_GROUP, member);
         assertEquals("Boom", currentMember.getEmail(), member.getEmail());
     }
 
