@@ -94,7 +94,7 @@ public class Cache<T> {
     }
 
     public boolean isExpired() {
-        return cachePopulatedTime == null ? true : getExpiration().isBeforeNow();
+        return cachePopulatedTime == null || getExpiration().isBeforeNow();
     }
 
     public Set<String> getKeySet() {

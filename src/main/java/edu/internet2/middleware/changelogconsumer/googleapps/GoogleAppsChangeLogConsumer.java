@@ -130,9 +130,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     private AttributeDefName syncAttribute;
     private GoogleGrouperConnector connector;
 
-    /** Whether or not to retry a change log entry if an error occurs. */
-    private boolean retryOnError = false;
-
 
     public GoogleAppsChangeLogConsumer() {
         LOG.trace("Google Apps Consumer - new instances starting up");
@@ -231,6 +228,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 lastContextId = changeLogEntry.getContextId();
 
                 // if an error occurs and retry on error is true, return the current sequence number minus 1
+                /* Whether or not to retry a change log entry if an error occurs. */
+                boolean retryOnError = properties.isRetryOnError();
                 if (errorOccurred && retryOnError) {
                     sequenceNumber--;
                     break;

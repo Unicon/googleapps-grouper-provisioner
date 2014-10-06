@@ -183,7 +183,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = directoryClient.groups().delete(groupKey);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         execute(request);
@@ -275,7 +275,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = directoryClient.users().get(userKey);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         return (User) execute(request);
@@ -296,7 +296,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = directoryClient.groups().list().setCustomer("my_customer").setMaxResults(1000000);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         do { //continue until we have all the pages read in.
@@ -325,7 +325,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = directoryClient.groups().get(groupKey);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         return (Group) execute(request);
@@ -346,7 +346,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = groupssettingClient.groups().get(groupKey);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         return (com.google.api.services.groupssettings.model.Groups) execute(request);
@@ -368,7 +368,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = directoryClient.members().list(groupKey);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         do { //continue until we have all the pages read in.
@@ -402,7 +402,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = directoryClient.members().insert(group.getId(), member);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         return (Member) execute(request);
@@ -423,7 +423,7 @@ public class GoogleAppsSdkUtils {
         try {
             request = directoryClient.members().delete(groupKey, memberKey);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOG.error("An unknown error occurred: " + e);
         }
 
         execute(request);

@@ -36,7 +36,7 @@ public class ComparableGroupItem {
 
     @Override
     public boolean equals(Object obj) {
-        return name.hashCode() == obj.hashCode();
+        return obj.getClass() == ComparableGroupItem.class && name.hashCode() == obj.hashCode();
     }
 
     public Group getGrouperGroup() {

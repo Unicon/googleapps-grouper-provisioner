@@ -25,7 +25,6 @@ import edu.internet2.middleware.changelogconsumer.googleapps.utils.ComparableGro
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.ComparableMemberItem;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.GoogleAppsSyncProperties;
 import edu.internet2.middleware.grouper.GrouperSession;
-import edu.internet2.middleware.grouper.attr.AttributeDefName;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
 import java.io.IOException;
@@ -52,22 +51,11 @@ public class GoogleAppsFullSync {
     private static final HashMap<String, String> fullSyncIsRunning = new HashMap<String, String>();
     private static final Object fullSyncIsRunningLock = new Object();
 
-    private AttributeDefName syncAttribute;
     private GoogleGrouperConnector connector;
     private String consumerName;
 
-    public GoogleAppsFullSync(String consumerName, boolean dryRun) {
+    public GoogleAppsFullSync(String consumerName) {
         this.consumerName = consumerName;
-
-        try {
-            fullSync(dryRun);
-
-        } catch (Exception e) {
-            System.console().printf(e.toString() + ": \n");
-            e.printStackTrace();
-        }
-
-        System.exit(0);
     }
 
     public static void main(String[] args) {
@@ -79,7 +67,16 @@ public class GoogleAppsFullSync {
             System.exit(-1);
         }
 
-        GoogleAppsFullSync fullSync = new GoogleAppsFullSync(args[0], args.length > 1 && args[1].equalsIgnoreCase("--dry-run"));
+        try {
+            GoogleAppsFullSync googleAppsFullSync = new GoogleAppsFullSync(args[0]);
+            googleAppsFullSync.process(args.length > 1 && args[1].equalsIgnoreCase("--dry-run"));
+
+        } catch (Exception e) {
+            System.console().printf(e.toString() + ": \n");
+            e.printStackTrace();
+        }
+
+        System.exit(0);
     }
 
     public static boolean isFullSyncRunning(String consumerName) {
@@ -92,7 +89,7 @@ public class GoogleAppsFullSync {
      * Runs a fullSync.
      * @param dryRun indicates that this is dryRun
      */
-    public void fullSync(boolean dryRun) {
+    public void process(boolean dryRun) {
 
         synchronized (fullSyncIsRunningLock) {
             fullSyncIsRunning.put(consumerName, Boolean.toString(true));
@@ -119,7 +116,7 @@ public class GoogleAppsFullSync {
 
         try {
             grouperSession = GrouperSession.startRootSession();
-            syncAttribute = connector.getGoogleSyncAttribute();
+            connector.getGoogleSyncAttribute();
             connector.cacheSyncedGroupsAndStems(true);
 
             // time context processing
@@ -170,7 +167,7 @@ public class GoogleAppsFullSync {
 
     private void processMatchedGroups(boolean dryRun, Collection<ComparableGroupItem> matchedGroups) {
         for (ComparableGroupItem item : matchedGroups) {
-            LOG.info("Google Apps Consumer '{}' Full Sync - examining matched group: {} ({})", new Object[] {consumerName, item.getGrouperGroup().getName(), item});
+            LOG.info("Google Apps Consumer '{}' Full Sync - examining matched group: {} ({})", new Object[]{consumerName, item.getGrouperGroup().getName(), item});
 
             Group gooGroup = null;
             try {
@@ -180,58 +177,67 @@ public class GoogleAppsFullSync {
             }
             boolean updated = false;
 
-            if (!item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
-                if (!dryRun) {
-                    gooGroup.setDescription(item.getGrouperGroup().getDescription());
-                    updated = true;
-                }
-            }
+            if (gooGroup == null) {
+                LOG.error("Google Apps Consume '{}' Full Sync - Error fetching matched group ({}); it disappeared during processing.", new Object[]{consumerName, item.getName()});
+            } else {
 
-            if (!item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
-                if (!dryRun) {
-                    gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
-                    updated = true;
+                if (!item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
+                    if (!dryRun) {
+                        gooGroup.setDescription(item.getGrouperGroup().getDescription());
+                        updated = true;
+                    }
                 }
-            }
 
-            if (updated) {
+                if (!item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
+                    if (!dryRun) {
+                        gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
+                        updated = true;
+                    }
+                }
+
+                if (updated) {
+                    try {
+                        connector.updateGooGroup(item.getName(), gooGroup);
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                    }
+                }
+
+                //Retrieve Membership
+                ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
+                for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
+                    if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+                        grouperMembers.add(new ComparableMemberItem(connector.getAddressFormatter().qualifySubjectAddress(member.getSubjectId()), member));
+                    }
+                }
+
+                ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
+                List<Member> memberList = null;
+
                 try {
-                    connector.updateGooGroup(item.getName(), gooGroup);
+                    memberList = connector.getGooMembership(item.getName());
                 } catch (IOException e) {
-                    LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                }
+
+                if (memberList == null) {
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group ({}); it's null", new Object[]{consumerName, item.getName()});
+
+                } else {
+                    for (Member member : memberList) {
+                        googleMembers.add(new ComparableMemberItem(member.getEmail()));
+                    }
+
+                    Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
+                    processExtraGroupMembers(item, extraMembers, dryRun);
+
+                    Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
+                    processMissingGroupMembers(item, missingMembers, gooGroup, dryRun);
+
+                    Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
+                    processMatchedGroupMembers(matchedMembers, dryRun);
                 }
             }
-
-            //Retrieve Membership
-            ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
-            for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
-                if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
-                    grouperMembers.add(new ComparableMemberItem(connector.getAddressFormatter().qualifySubjectAddress(member.getSubjectId()), member));
-                }
-            }
-
-            ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
-            List<Member> memberList = null;
-
-            try {
-                memberList = connector.getGooMembership(item.getName());
-            } catch (IOException e) {
-                LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
-            }
-
-            for (Member member : memberList) {
-                googleMembers.add(new ComparableMemberItem(member.getEmail()));
-            }
-
-            Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
-            processExtraGroupMembers(item, extraMembers, dryRun);
-
-            Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
-            processMissingGroupMembers(item, missingMembers, gooGroup, dryRun);
-
-            Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
-            processMatchedGroupMembers(matchedMembers, dryRun);
-
         }
     }
 

@@ -36,7 +36,7 @@ public class ComparableMemberItem {
 
     @Override
     public boolean equals(Object obj) {
-        return email.hashCode() == obj.hashCode();
+        return obj.getClass() == ComparableMemberItem.class && email.hashCode() == obj.hashCode();
     }
 
     public Member getGrouperMember() {
