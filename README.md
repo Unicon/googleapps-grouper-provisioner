@@ -65,9 +65,14 @@ Assigning `the etc:attribute:googleProvisioner:syncToGooglegoogle` to the stem `
 
 ```java
 grouperSession = GrouperSession.startRootSession();
-groupStem = StemFinder.findByName(grouperSession, "qsuob:testStem", true);
+stemTest = StemFinder.findByName(grouperSession, "qsuob:testStem", true);
 attrSync = AttributeDefNameFinder.findByName("etc:attribute:googleProvisioner:syncToGooglegoogle",true);
-groupStem.getAttributeDelegate().addAttribute(attrSync);
+
+//Add Assignment
+stemTest.getAttributeDelegate().addAttribute(attrSync);
+
+//Remove Assignment
+//stemTest.getAttributeDelegate().removeAttribute(attrSync);
 ```
 
 ### Assign the Attribute to the Group
@@ -77,7 +82,12 @@ Assigning `the etc:attribute:googleProvisioner:syncToGooglegoogle` to the group 
 grouperSession = GrouperSession.startRootSession();
 groupTest = GroupFinder.findByName(grouperSession, "qsuob:testGroup", true);
 attrSync = AttributeDefNameFinder.findByName("etc:attribute:googleProvisioner:syncToGooglegoogle", true);
+
+//Add Assignment
 groupTest.getAttributeDelegate().addAttribute(attrSync);
+
+//Remove Assignment
+//groupTest.getAttributeDelegate().removeAttribute(attrSync);
 ```
 
 ## Troubleshooting
