@@ -211,7 +211,7 @@ public class GoogleGrouperConnector {
     public Subject fetchGrouperSubject(String sourceId, String subjectId) {
         Subject subject = grouperSubjects.get(sourceId + "__" + subjectId);
         if (subject == null) {
-            subject = SubjectFinder.findByIdAndSource(sourceId, subjectId, false);
+            subject = SubjectFinder.findByIdAndSource(subjectId, sourceId, false);
 
             if (subject != null) {
                 grouperSubjects.put(subject);
