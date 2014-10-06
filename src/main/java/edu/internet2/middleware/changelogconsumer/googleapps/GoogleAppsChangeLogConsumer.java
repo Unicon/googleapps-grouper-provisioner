@@ -172,7 +172,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             grouperSession = GrouperSession.startRootSession();
             syncAttribute = connector.getGoogleSyncAttribute();
-            connector.cacheSynedObjects();
+            connector.cacheSyncedGroupsAndStems();
 
             // time context processing
             final StopWatch stopWatch = new StopWatch();

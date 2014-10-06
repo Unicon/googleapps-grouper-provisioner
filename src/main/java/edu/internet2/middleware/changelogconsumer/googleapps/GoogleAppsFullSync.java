@@ -116,7 +116,7 @@ public class GoogleAppsFullSync {
         try {
             grouperSession = GrouperSession.startRootSession();
             syncAttribute = connector.getGoogleSyncAttribute();
-            connector.cacheSynedObjects(true);
+            connector.cacheSyncedGroupsAndStems(true);
 
             // time context processing
             final StopWatch stopWatch = new StopWatch();

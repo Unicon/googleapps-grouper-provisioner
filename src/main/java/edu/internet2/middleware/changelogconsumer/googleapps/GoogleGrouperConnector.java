@@ -420,10 +420,10 @@ public class GoogleGrouperConnector {
         return result;
     }
 
-    public void cacheSynedObjects() {
-        cacheSynedObjects(false);
+    public void cacheSyncedGroupsAndStems() {
+        cacheSyncedGroupsAndStems(false);
     }
-    public void cacheSynedObjects(boolean fullyPopulate) {
+    public void cacheSyncedGroupsAndStems(boolean fullyPopulate) {
         /* Future: API 2.3.0 has support for getting a list of stems and groups using the Finder objects. */
 
         final ArrayList<String> ids = new ArrayList<String>();
