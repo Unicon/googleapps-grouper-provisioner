@@ -45,10 +45,10 @@ The serviceImpersonationUser is a fully qualified Google user account that the G
 acting on behalf of, while the domain is the hostname of the user & google accounts.
  
 The identiferExpressions can be used to manipulate the Google Group names and Google account names that will be provisioned. The 
-properties are Java Expression Language (JEXL) patterns. ${groupName} is the full path of the group (e.ge qsob:courses:ACCT251:01).
-${subjectId} is the subjectName coming from the subjects source. A sample JEXL string to pre-pend the group with "grp" and 
+properties are Java Expression Language (JEXL) patterns. ${groupName} is the full path of the group (e.g. qsob:courses:ACCT251:01).
+${subjectId} is the subjectName coming from the subjectas source. A sample JEXL string to pre-pend the group with "grp" and 
 strip the first part of the stem would be `grp-${groupName.replace("qsob:courses", "")}`.  Colons are not permitted in the 
-group name and will be replaced by a hyphen (-) if not replaced with something else (i.e. `.replace(":","_")`).
+group name and will be replaced by a hyphen (-) if not replaced with something else (e.g. `.replace(":","_")`).
 
 ## Running
 1. Add the module and dependencies to the CLASSPATH:
