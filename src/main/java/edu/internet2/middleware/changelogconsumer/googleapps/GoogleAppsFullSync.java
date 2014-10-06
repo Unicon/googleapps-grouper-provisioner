@@ -46,18 +46,6 @@ import org.slf4j.LoggerFactory;
  */
 public class GoogleAppsFullSync {
 
-    public static void main(String[] args) {
-        if (args.length == 0 ) {
-            System.console().printf("Google Change Log Consumer Name must be provided\n");
-            System.console().printf("*nix: googleAppsFullSync.sh consumerName [--dry-run]\n");
-            System.console().printf("Windows: googleAppsFullSync.bat consumerName [--dry-run]\n");
-
-            System.exit(-1);
-        }
-
-        GoogleAppsFullSync fullSync = new GoogleAppsFullSync(args[0], args.length > 1 && args[1].equalsIgnoreCase("--dry-run"));
-    }
-
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsFullSync.class);
 
     /** "Boolean" used to delay change log processing when a full sync is running. */
@@ -65,9 +53,7 @@ public class GoogleAppsFullSync {
     private static final Object fullSyncIsRunningLock = new Object();
 
     private AttributeDefName syncAttribute;
-
     private GoogleGrouperConnector connector;
-
     private String consumerName;
 
     public GoogleAppsFullSync(String consumerName, boolean dryRun) {
@@ -82,6 +68,24 @@ public class GoogleAppsFullSync {
         }
 
         System.exit(0);
+    }
+
+    public static void main(String[] args) {
+        if (args.length == 0 ) {
+            System.console().printf("Google Change Log Consumer Name must be provided\n");
+            System.console().printf("*nix: googleAppsFullSync.sh consumerName [--dry-run]\n");
+            System.console().printf("Windows: googleAppsFullSync.bat consumerName [--dry-run]\n");
+
+            System.exit(-1);
+        }
+
+        GoogleAppsFullSync fullSync = new GoogleAppsFullSync(args[0], args.length > 1 && args[1].equalsIgnoreCase("--dry-run"));
+    }
+
+    public static boolean isFullSyncRunning(String consumerName) {
+        synchronized (fullSyncIsRunningLock) {
+            return fullSyncIsRunning.get(consumerName) != null && Boolean.valueOf(fullSyncIsRunning.get(consumerName));
+        }
     }
 
     /**
@@ -142,131 +146,13 @@ public class GoogleAppsFullSync {
 
             //Get our sets
             Collection<ComparableGroupItem> extraGroups = CollectionUtils.subtract(googleGroups, grouperGroups);
-            for (ComparableGroupItem item : extraGroups) {
-                LOG.info("Google Apps Consumer '{}' Full Sync - removing extra Google group: {}", consumerName, item);
-
-                if (!dryRun) {
-                    try {
-                        connector.deleteGooGroupByEmail(item.getName());
-                    } catch (IOException e) {
-                        LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
-                    }
-                }
-            }
+            processExtraGroups(dryRun, extraGroups);
 
             Collection<ComparableGroupItem> missingGroups = CollectionUtils.subtract(grouperGroups, googleGroups);
-            for (ComparableGroupItem item : missingGroups) {
-                LOG.info("Google Apps Consumer '{}' Full Sync - adding missing Google group: {} ({})", new Object[] {consumerName, item.getGrouperGroup().getName(), item});
-
-                if (!dryRun) {
-                    try {
-                        connector.createGooGroupIfNecessary(item.getGrouperGroup());
-                    } catch (IOException e) {
-                        LOG.error("Google Apps Consume '{}' Full Sync - Error adding missing group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
-                    }
-                }
-            }
+            processMissingGroups(dryRun, missingGroups);
 
             Collection<ComparableGroupItem> matchedGroups = CollectionUtils.intersection(grouperGroups, googleGroups);
-            for (ComparableGroupItem item : matchedGroups) {
-                LOG.info("Google Apps Consumer '{}' Full Sync - examining matched group: {} ({})", new Object[] {consumerName, item.getGrouperGroup().getName(), item});
-
-                Group gooGroup = null;
-                try {
-                    gooGroup = connector.fetchGooGroup(item.getName());
-                } catch (IOException e) {
-                    LOG.error("Google Apps Consume '{}' Full Sync - Error fetching matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
-                }
-                boolean updated = false;
-
-                if (!item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
-                    if (!dryRun) {
-                        gooGroup.setDescription(item.getGrouperGroup().getDescription());
-                        updated = true;
-                    }
-                }
-
-                if (!item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
-                    if (!dryRun) {
-                        gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
-                        updated = true;
-                    }
-                }
-
-                if (updated) {
-                    try {
-                        connector.updateGooGroup(item.getName(), gooGroup);
-                    } catch (IOException e) {
-                        LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
-                    }
-                }
-
-                //Retrieve & Examine Membership
-                ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
-                for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
-                    if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
-                        grouperMembers.add(new ComparableMemberItem(connector.getAddressFormatter().qualifySubjectAddress(member.getSubjectId()), member));
-                    }
-                }
-
-                ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
-                List<Member> memberList = null;
-
-                try {
-                    memberList = connector.getGooMembership(item.getName());
-                } catch (IOException e) {
-                    LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
-                }
-
-                for (Member member : memberList) {
-                    googleMembers.add(new ComparableMemberItem(member.getEmail()));
-                }
-
-                Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
-                for (ComparableMemberItem member : extraMembers) {
-                    LOG.info("Google Apps Consume '{}' Full Sync - Removing extra member ({}) from matched group ({})", new Object[]{consumerName, member.getEmail(), item.getName()});
-                    if (!dryRun) {
-                        try {
-                            connector.removeGooMembership(item.getName(), member.getGrouperMember().getSubject());
-                        } catch (IOException e) {
-                            LOG.warn("Google Apps Consume '{}' - Error removing membership ({}) from Google Group ({}): {}", new Object[]{consumerName, member.getEmail(), item.getName(), e.getMessage()});
-                        }
-                    }
-                }
-
-                Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
-                for (ComparableMemberItem member : missingMembers) {
-                    LOG.info("Google Apps Consume '{}' Full Sync - Creating missing user/member ({}) from extra group ({}).", new Object[]{consumerName, member.getEmail(), item.getName()});
-                    if (!dryRun) {
-                        Subject subject = connector.fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
-                        User user = connector.fetchGooUser(member.getEmail());
-
-                        if (user == null) {
-                            try {
-                                user = connector.createGooUser(subject);
-                            } catch (IOException e) {
-                                LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing user ({}) from extra group ({}): {}", new Object[]{consumerName, member.getEmail(), item.getName(), e.getMessage()});
-                            }
-                        }
-
-                        if (user != null) {
-                            try {
-                                connector.createGooMember(gooGroup, user, "MEMBER");
-                            } catch (IOException e) {
-                                LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing member ({}) from extra group ({}): {}", new Object[]{consumerName, member.getEmail(), item.getName(), e.getMessage()});
-                            }
-                        }
-                    }
-                }
-
-                Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
-                for (ComparableMemberItem member : matchedMembers) {
-                    if (!dryRun) {
-                        //check the privilege level when implemented
-                    }
-                }
-
-            }
+            processMatchedGroups(dryRun, matchedGroups);
 
             // stop the timer and log
             stopWatch.stop();
@@ -282,9 +168,145 @@ public class GoogleAppsFullSync {
 
     }
 
-    public static boolean isFullSyncRunning(String consumerName) {
-        synchronized (fullSyncIsRunningLock) {
-            return fullSyncIsRunning.get(consumerName) != null && Boolean.valueOf(fullSyncIsRunning.get(consumerName));
+    private void processMatchedGroups(boolean dryRun, Collection<ComparableGroupItem> matchedGroups) {
+        for (ComparableGroupItem item : matchedGroups) {
+            LOG.info("Google Apps Consumer '{}' Full Sync - examining matched group: {} ({})", new Object[] {consumerName, item.getGrouperGroup().getName(), item});
+
+            Group gooGroup = null;
+            try {
+                gooGroup = connector.fetchGooGroup(item.getName());
+            } catch (IOException e) {
+                LOG.error("Google Apps Consume '{}' Full Sync - Error fetching matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+            }
+            boolean updated = false;
+
+            if (!item.getGrouperGroup().getDescription().equalsIgnoreCase(gooGroup.getDescription())) {
+                if (!dryRun) {
+                    gooGroup.setDescription(item.getGrouperGroup().getDescription());
+                    updated = true;
+                }
+            }
+
+            if (!item.getGrouperGroup().getDisplayExtension().equalsIgnoreCase(gooGroup.getName())) {
+                if (!dryRun) {
+                    gooGroup.setName(item.getGrouperGroup().getDisplayExtension());
+                    updated = true;
+                }
+            }
+
+            if (updated) {
+                try {
+                    connector.updateGooGroup(item.getName(), gooGroup);
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error updating matched group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                }
+            }
+
+            //Retrieve Membership
+            ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
+            for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
+                if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+                    grouperMembers.add(new ComparableMemberItem(connector.getAddressFormatter().qualifySubjectAddress(member.getSubjectId()), member));
+                }
+            }
+
+            ArrayList<ComparableMemberItem> googleMembers = new ArrayList<ComparableMemberItem>();
+            List<Member> memberList = null;
+
+            try {
+                memberList = connector.getGooMembership(item.getName());
+            } catch (IOException e) {
+                LOG.error("Google Apps Consume '{}' Full Sync - Error fetching membership list for group({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+            }
+
+            for (Member member : memberList) {
+                googleMembers.add(new ComparableMemberItem(member.getEmail()));
+            }
+
+            Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
+            processExtraGroupMembers(item, extraMembers, dryRun);
+
+            Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
+            processMissingGroupMembers(item, missingMembers, gooGroup, dryRun);
+
+            Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
+            processMatchedGroupMembers(matchedMembers, dryRun);
+
+        }
+    }
+
+    private void processMatchedGroupMembers(Collection<ComparableMemberItem> matchedMembers, boolean dryRun) {
+        for (ComparableMemberItem member : matchedMembers) {
+            if (!dryRun) {
+                //check the privilege level when implemented
+            }
+        }
+    }
+
+    private void processMissingGroupMembers(ComparableGroupItem group, Collection<ComparableMemberItem> missingMembers, Group gooGroup, boolean dryRun) {
+        for (ComparableMemberItem member : missingMembers) {
+            LOG.info("Google Apps Consume '{}' Full Sync - Creating missing user/member ({}) from extra group ({}).", new Object[]{consumerName, member.getEmail(), group.getName()});
+            if (!dryRun) {
+                Subject subject = connector.fetchGrouperSubject(member.getGrouperMember().getSubjectSourceId(), member.getGrouperMember().getSubjectId());
+                User user = connector.fetchGooUser(member.getEmail());
+
+                if (user == null) {
+                    try {
+                        user = connector.createGooUser(subject);
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing user ({}) from extra group ({}): {}", new Object[]{consumerName, member.getEmail(), group.getName(), e.getMessage()});
+                    }
+                }
+
+                if (user != null) {
+                    try {
+                        connector.createGooMember(gooGroup, user, "MEMBER");
+                    } catch (IOException e) {
+                        LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing member ({}) from extra group ({}): {}", new Object[]{consumerName, member.getEmail(), group.getName(), e.getMessage()});
+                    }
+                }
+            }
+        }
+    }
+
+    private void processExtraGroupMembers(ComparableGroupItem group, Collection<ComparableMemberItem> extraMembers, boolean dryRun) {
+        for (ComparableMemberItem member : extraMembers) {
+            LOG.info("Google Apps Consume '{}' Full Sync - Removing extra member ({}) from matched group ({})", new Object[]{consumerName, member.getEmail(), group.getName()});
+            if (!dryRun) {
+                try {
+                    connector.removeGooMembership(group.getName(), member.getGrouperMember().getSubject());
+                } catch (IOException e) {
+                    LOG.warn("Google Apps Consume '{}' - Error removing membership ({}) from Google Group ({}): {}", new Object[]{consumerName, member.getEmail(), group.getName(), e.getMessage()});
+                }
+            }
+        }
+    }
+
+    private void processMissingGroups(boolean dryRun, Collection<ComparableGroupItem> missingGroups) {
+        for (ComparableGroupItem item : missingGroups) {
+            LOG.info("Google Apps Consumer '{}' Full Sync - adding missing Google group: {} ({})", new Object[] {consumerName, item.getGrouperGroup().getName(), item});
+
+            if (!dryRun) {
+                try {
+                    connector.createGooGroupIfNecessary(item.getGrouperGroup());
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error adding missing group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                }
+            }
+        }
+    }
+
+    private void processExtraGroups(boolean dryRun, Collection<ComparableGroupItem> extraGroups) {
+        for (ComparableGroupItem item : extraGroups) {
+            LOG.info("Google Apps Consumer '{}' Full Sync - removing extra Google group: {}", consumerName, item);
+
+            if (!dryRun) {
+                try {
+                    connector.deleteGooGroupByEmail(item.getName());
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error removing extra group ({}): {}", new Object[]{consumerName, item.getName(), e.getMessage()});
+                }
+            }
         }
     }
 

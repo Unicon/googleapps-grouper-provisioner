@@ -3,7 +3,9 @@ package edu.internet2.middleware.changelogconsumer.googleapps.utils;
 import edu.internet2.middleware.grouper.Group;
 
 /**
- * Is a Google named index with a back link to the Grouper object. This allows for set comparisons with Google group objects.
+ * Is a Google named index with a back link to the Grouper group object. This allows for set comparisons with Google group objects.
+ *
+ * @author John Gasper, Unicon
  */
 public class ComparableGroupItem {
     private String name;

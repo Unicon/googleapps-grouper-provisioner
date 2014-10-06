@@ -58,40 +58,41 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Created by jgasper on 10/3/14.
+ * Contains methods used by both the ChangeLogConsumer and the FullSync classes.
+ *
+ * @author John Gasper, Unicon
  */
 public class GoogleGrouperConnector {
-
-    private static final Logger LOG = LoggerFactory.getLogger(GoogleGrouperConnector.class);
-
     public static final String SYNC_TO_GOOGLE = "syncToGoogle";
     public static final String GOOGLE_PROVISIONER = "googleProvisioner";
     public static final String ATTRIBUTE_CONFIG_STEM = "etc:attribute";
     public static final String GOOGLE_CONFIG_STEM = ATTRIBUTE_CONFIG_STEM + ":" + GOOGLE_PROVISIONER;
     public static final String SYNC_TO_GOOGLE_NAME = GOOGLE_CONFIG_STEM + ":" + SYNC_TO_GOOGLE;
 
-    /** Google Directory services client*/
-    private Directory directoryClient;
-
-    /** Google Groupssettings services client*/
-    private Groupssettings groupssettingsClient;
-
-    private AttributeDefName syncAttribute;
-
+    private static final Logger LOG = LoggerFactory.getLogger(GoogleGrouperConnector.class);
     /** Global instance of the JSON factory. */
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
-    private AddressFormatter addressFormatter = new AddressFormatter();
+    private Directory directoryClient;
+    private Groupssettings groupssettingsClient;
 
     //The Google Objects hang around a lot longer due to Google API constraints, so they are stored in a static GoogleCacheManager class.
     //Grouper ones are easier to refresh.
-    private Cache<Subject> grouperSubjects = new Cache<Subject>();
-    private Cache<edu.internet2.middleware.grouper.Group> grouperGroups = new Cache<edu.internet2.middleware.grouper.Group>();
-    private HashMap<String, String> syncedObjects = new HashMap<String, String>();
+    private Cache<Subject> grouperSubjects;
+    private Cache<edu.internet2.middleware.grouper.Group> grouperGroups;
+    private HashMap<String, String> syncedObjects;
 
     private String consumerName;
-
+    private AttributeDefName syncAttribute;
     private GoogleAppsSyncProperties properties;
+    private AddressFormatter addressFormatter;
+
+    public GoogleGrouperConnector() {
+        grouperSubjects = new Cache<Subject>();
+        grouperGroups = new Cache<edu.internet2.middleware.grouper.Group>();
+        syncedObjects = new HashMap<String, String>();
+        addressFormatter = new AddressFormatter();
+    }
 
     public void initialize(String consumerName, GoogleAppsSyncProperties properties) throws GeneralSecurityException, IOException {
         this.consumerName = consumerName;

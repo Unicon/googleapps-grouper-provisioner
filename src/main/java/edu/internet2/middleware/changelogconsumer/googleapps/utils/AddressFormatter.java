@@ -24,6 +24,7 @@ import org.apache.commons.jexl2.UnifiedJEXL;
 
 /**
  * Formats user and group addresses. Supports JEXL manipulations/evaluations
+ *
  * @author John Gasper, Unicon
  */
 public class AddressFormatter {

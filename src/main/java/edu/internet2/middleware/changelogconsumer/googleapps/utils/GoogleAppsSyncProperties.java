@@ -1,17 +1,14 @@
 package edu.internet2.middleware.changelogconsumer.googleapps.utils;
 
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.services.admin.directory.Directory;
-import com.google.api.services.groupssettings.Groupssettings;
 import com.google.api.services.groupssettings.model.Groups;
 import edu.internet2.middleware.grouper.app.loader.GrouperLoaderConfig;
-import edu.internet2.middleware.grouper.attr.AttributeDefName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Created by jgasper on 10/3/14.
+ * Collects all the various properties and makes them available to the consumer and fullSync.
+ *
+ * @author John Gasper, Unicon
  */
 public class GoogleAppsSyncProperties {
 

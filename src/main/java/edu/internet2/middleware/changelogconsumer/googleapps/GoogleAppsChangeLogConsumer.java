@@ -121,23 +121,21 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
          * @throws Exception if any error occurs
          */
         public abstract void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception;
-
     }
 
     private static final Logger LOG = LoggerFactory.getLogger(GoogleAppsFullSync.class);
 
     /** The change log consumer name from the processor metadata. */
-    private String name;
+    private String consumerName;
+    private AttributeDefName syncAttribute;
+    private GoogleGrouperConnector connector;
 
     /** Whether or not to retry a change log entry if an error occurs. */
     private boolean retryOnError = false;
 
-    private GoogleGrouperConnector connector;
-
-    private AttributeDefName syncAttribute;
 
     public GoogleAppsChangeLogConsumer() {
-        LOG.debug("Google Apps Consumer - new");
+        LOG.trace("Google Apps Consumer - new instances starting up");
 
         connector = new GoogleGrouperConnector();
     }
@@ -152,18 +150,18 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         // the change log sequence number to return
         long sequenceNumber = -1;
 
-        // initialize this consumer's name from the change log metadata
-        if (name == null) {
-            name = changeLogProcessorMetadata.getConsumerName();
-            LOG.trace("Google Apps Consumer '{}' - Setting name.", name);
+        // initialize this consumer's consumerName from the change log metadata
+        if (consumerName == null) {
+            consumerName = changeLogProcessorMetadata.getConsumerName();
+            LOG.trace("Google Apps Consumer '{}' - Setting name.", consumerName);
         }
 
-        GoogleAppsSyncProperties properties = new GoogleAppsSyncProperties(name);
+        GoogleAppsSyncProperties properties = new GoogleAppsSyncProperties(consumerName);
 
         try {
-            connector.initialize(name, properties);
+            connector.initialize(consumerName, properties);
         } catch (Exception e) {
-            LOG.error("Google Apps Consumer '{}' - This consumer failed to initialize: {}", name, e.getMessage());
+            LOG.error("Google Apps Consumer '{}' - This consumer failed to initialize: {}", consumerName, e.getMessage());
             return changeLogEntryList.get(0).getSequenceNumber() - 1;
         }
 
@@ -180,7 +178,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             // the last change log sequence number processed
             String lastContextId = null;
 
-            LOG.debug("Google Apps Consumer '{}' - Processing change log entry list size '{}'", name, changeLogEntryList.size());
+            LOG.debug("Google Apps Consumer '{}' - Processing change log entry list size '{}'", consumerName, changeLogEntryList.size());
 
             // process each change log entry
             for (ChangeLogEntry changeLogEntry : changeLogEntryList) {
@@ -189,10 +187,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 sequenceNumber = changeLogEntry.getSequenceNumber();
 
                 // if full sync is running, return the previous sequence number to process this entry on the next run
-                boolean isFullSyncRunning = GoogleAppsFullSync.isFullSyncRunning(name);
+                boolean isFullSyncRunning = GoogleAppsFullSync.isFullSyncRunning(consumerName);
 
                 if (isFullSyncRunning) {
-                    LOG.info("Google Apps Consumer '{}' - Full sync is running, returning sequence number '{}'", name,
+                    LOG.info("Google Apps Consumer '{}' - Full sync is running, returning sequence number '{}'", consumerName,
                             sequenceNumber - 1);
                     return sequenceNumber - 1;
                 }
@@ -213,7 +211,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 } catch (Exception e) {
                     errorOccurred = true;
                     String message =
-                            "Google Apps Consumer '" + name + "' - An error occurred processing sequence number " + sequenceNumber;
+                            "Google Apps Consumer '" + consumerName + "' - An error occurred processing sequence number " + sequenceNumber;
                     LOG.error(message, e);
                     changeLogProcessorMetadata.registerProblem(e, message, sequenceNumber);
                     changeLogProcessorMetadata.setHadProblem(true);
@@ -224,7 +222,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 // if the change log context id has changed, log and restart stop watch
                 if (!lastContextId.equals(changeLogEntry.getContextId())) {
                     stopWatch.stop();
-                    LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {name,
+                    LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {consumerName,
                             lastContextId, stopWatch,});
                     stopWatch.reset();
                     stopWatch.start();
@@ -241,7 +239,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             // stop the timer and log
             stopWatch.stop();
-            LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {name,
+            LOG.debug("Google Apps Consumer '{}' - Processed change log context '{}' Elapsed time {}", new Object[] {consumerName,
                     lastContextId, stopWatch,});
 
         } finally {
@@ -249,11 +247,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         }
 
         if (sequenceNumber == -1) {
-            LOG.error("Google Apps Consumer '" + name + "' - Unable to process any records.");
-            throw new RuntimeException("Google Apps Consumer '" + name + "' - Unable to process any records.");
+            LOG.error("Google Apps Consumer '" + consumerName + "' - Unable to process any records.");
+            throw new RuntimeException("Google Apps Consumer '" + consumerName + "' - Unable to process any records.");
         }
 
-        LOG.debug("Google Apps Consumer '{}' - Finished processing change log entries. Last sequence number '{}'", name,
+        LOG.debug("Google Apps Consumer '{}' - Finished processing change log entries. Last sequence number '{}'", consumerName,
                 sequenceNumber);
 
         // return the sequence number
@@ -276,11 +274,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             final EventType eventType = EventType.valueOf(enumKey);
 
             if (eventType == null) {
-                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Unsupported category and action.", name,
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Unsupported category and action.", consumerName,
                         toString(changeLogEntry));
             } else {
                 // process the change log event
-                LOG.info("Google Apps Consumer '{}' - Change log entry '{}'", name, toStringDeep(changeLogEntry));
+                LOG.info("Google Apps Consumer '{}' - Change log entry '{}'", consumerName, toStringDeep(changeLogEntry));
                 StopWatch stopWatch = new StopWatch();
                 stopWatch.start();
 
@@ -288,12 +286,12 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
                 stopWatch.stop();
                 LOG.info("Google Apps Consumer '{}' - Change log entry '{}' Finished processing. Elapsed time {}",
-                        new Object[] {name, toString(changeLogEntry), stopWatch,});
+                        new Object[] {consumerName, toString(changeLogEntry), stopWatch,});
 
             }
 
         } catch (IllegalArgumentException e) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Unsupported category and action.", name,
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Unsupported category and action.", consumerName,
                     toString(changeLogEntry));
         }
     }
@@ -306,7 +304,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processAttributeAssignAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", name,
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing add attribute assign value.", consumerName,
                 toString(changeLogEntry));
 
         final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_ADD.attributeDefNameId);
@@ -321,7 +319,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 try {
                     connector.createGooGroupIfNecessary(group);
                 } catch (IOException e) {
-                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {name, toString(changeLogEntry), e});
+                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {consumerName, toString(changeLogEntry), e});
                 }
 
             } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
@@ -332,7 +330,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     try {
                         connector.createGooGroupIfNecessary(group);
                     } catch (IOException e) {
-                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {name, toString(changeLogEntry), e});
+                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {consumerName, toString(changeLogEntry), e});
                     }
                 }
             }
@@ -347,7 +345,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processAttributeAssignDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry)  {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing delete attribute assign value.", name,
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing delete attribute assign value.", consumerName,
                 toString(changeLogEntry));
 
         final String attributeDefNameId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.ATTRIBUTE_ASSIGN_DELETE.attributeDefNameId);
@@ -362,7 +360,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 try {
                     connector.deleteGooGroup(group);
                 } catch (IOException e) {
-                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {name, toString(changeLogEntry), e});
+                    LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}", new Object[] {consumerName, toString(changeLogEntry), e});
                 }
 
             } else if (AttributeAssignType.valueOf(assignType) == AttributeAssignType.stem) {
@@ -373,7 +371,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     try {
                         connector.deleteGooGroup(group);
                     } catch (IOException e) {
-                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {name, toString(changeLogEntry), e});
+                        LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add, continuing: {}", new Object[] {consumerName, toString(changeLogEntry), e});
                     }
                 }
             }
@@ -388,7 +386,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processGroupAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group add.", name, toString(changeLogEntry));
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group add.", consumerName, toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_ADD.name);
         final edu.internet2.middleware.grouper.Group group = connector.fetchGrouperGroup(groupName);
@@ -400,7 +398,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         try {
             connector.createGooGroupIfNecessary(group);
         } catch (IOException e) {
-            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}",  new Object[] {name, toString(changeLogEntry), e});
+            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group add: {}",  new Object[] {consumerName, toString(changeLogEntry), e});
         }
 
     }
@@ -413,7 +411,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processGroupDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", name, toString(changeLogEntry));
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group delete.", consumerName, toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_DELETE.name);
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
@@ -425,7 +423,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         try {
             connector.deleteGooGroup(grouperGroup);
         } catch (IOException e) {
-            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", new Object[] {name, toString(changeLogEntry), e.getMessage()});
+            LOG.error("Google Apps Consumer '{}' - Change log entry '{}' Error processing group delete: {}", new Object[] {consumerName, toString(changeLogEntry), e.getMessage()});
         }
     }
 
@@ -437,7 +435,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processGroupUpdate(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group update.", name, toString(changeLogEntry));
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing group update.", consumerName, toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.name);
         final String propertyChanged = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.GROUP_UPDATE.propertyChanged);
@@ -488,13 +486,13 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
             } else {
                 LOG.warn("Google Apps Consumer '{}' - Change log entry '{}' Unmapped group property updated {}.",
-                        new Object[] {name, toString(changeLogEntry), propertyChanged});
+                        new Object[] {consumerName, toString(changeLogEntry), propertyChanged});
             }
 
             GoogleCacheManager.googleGroups().put(connector.updateGooGroup(connector.getAddressFormatter().qualifyGroupAddress(groupName), group));
 
         } catch (IOException e) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing group update.", name, toString(changeLogEntry));
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing group update.", consumerName, toString(changeLogEntry));
         }
     }
 
@@ -507,7 +505,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
     protected void processMembershipAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
         final String ROLE = "MEMBER"; //Other types are ADMIN and OWNER. Neither makes sense for managed groups.
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", name,
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", consumerName,
                 toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
@@ -543,7 +541,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             }
 
         } catch (IOException e) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", new Object[] {name,
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership add failed: {}", new Object[] {consumerName,
                     toString(changeLogEntry), e});
         }
     }
@@ -556,7 +554,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processMembershipDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership delete.", name,
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership delete.", consumerName,
                 toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_DELETE.groupName);
@@ -577,7 +575,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             try {
                 connector.removeGooMembership(groupName, lookupSubject);
             } catch (IOException e) {
-                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", new Object[]{name,
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing membership delete: {}", new Object[]{consumerName,
                         toString(changeLogEntry), e});
             }
         }
@@ -591,7 +589,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      */
     protected void processStemDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
 
-        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem delete.", name, toString(changeLogEntry));
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing stem delete.", consumerName, toString(changeLogEntry));
 
         final String stemName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.STEM_DELETE.name);
 
