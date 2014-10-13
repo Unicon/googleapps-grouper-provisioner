@@ -359,6 +359,51 @@ public class GoogleAppsSdkUtils {
     }
 
     /**
+     * retrieveGroupMember returns a requested group member.
+     * @param directoryClient a Directory client
+     * @param groupKey an identifier for a group (e-mail address is the most popular)
+     * @param userKey an identifier for a group (e-mail address is the most popular)
+     * @return the Group object from Google
+     * @throws IOException
+     */
+    public static Member retrieveGroupMember(Directory directoryClient, String groupKey, String userKey) throws IOException {
+        LOG.debug("retrieveGroupMember() - {} in {}", userKey, groupKey);
+
+        Directory.Members.Get request = null;
+
+        try {
+            request = directoryClient.members().get(groupKey,userKey);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        return (Member) execute(request);
+    }
+
+    /**
+     * addGroup adds a group to Google.
+     * @param directoryClient a Directory client
+     * @param groupKey an identifier for a group (e-mail address is the most popular)
+     * @param userKey an identifier for a user (e-mail address is the most popular)
+     * @param member a populated member object
+     * @return the new Group object created/returned by Google
+     * @throws IOException
+     */
+    public static Member updateGroupMember(Directory directoryClient, String groupKey, String userKey, Member member) throws IOException {
+        LOG.debug("updateGroupMember() - {}", member);
+
+        Directory.Members.Update request = null;
+
+        try {
+            request = directoryClient.members().update(groupKey, userKey, member);
+        } catch (IOException e) {
+            LOG.error("An unknown error occurred: " + e);
+        }
+
+        return (Member) execute(request);
+    }
+
+    /**
      * retrieveGroupMembers returns a list of members of a group.
      * @param directoryClient a Directory client
      * @param groupKey an identifier for a group (e-mail address is the most popular)

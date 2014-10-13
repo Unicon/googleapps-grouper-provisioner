@@ -26,6 +26,7 @@ import edu.internet2.middleware.grouper.attr.AttributeDefName;
 import edu.internet2.middleware.grouper.attr.assign.AttributeAssignType;
 import edu.internet2.middleware.grouper.changeLog.*;
 import edu.internet2.middleware.grouper.Stem.Scope;
+import edu.internet2.middleware.grouper.privs.Privilege;
 import edu.internet2.middleware.subject.Subject;
 import edu.internet2.middleware.subject.SubjectType;
 import edu.internet2.middleware.subject.provider.SubjectTypeEnum;
@@ -101,6 +102,24 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
             /** {@inheritDoc} */
             public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
                 consumer.processMembershipDelete(consumer, changeLogEntry);
+            }
+        },
+
+        privilege__addPrivilege {
+            public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
+                consumer.processPrivilegeAdd(consumer, changeLogEntry);
+            }
+        },
+
+        privilege__deletePrivilege {
+            public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
+                consumer.processPrivilegeDelete(consumer, changeLogEntry);
+            }
+        },
+
+        privilege__updatePrivilege {
+            public void process(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) throws Exception {
+                consumer.processPrivilegeUpdate(consumer, changeLogEntry);
             }
         },
 
@@ -578,6 +597,105 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                         toString(changeLogEntry), e});
             }
         }
+    }
+
+    protected void processPrivilegeAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+        final String ROLE = "MEMBER"; //Other types are ADMIN and OWNER. Neither makes sense for managed groups.
+
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing privilege add.", consumerName,
+                toString(changeLogEntry));
+
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_ADD.ownerName);
+        final String privilegeName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_ADD.privilegeName);
+        final String memberId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_ADD.memberId);
+
+        final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
+        final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
+
+        if (!connector.shouldSyncGroup(grouperGroup)) {
+            return;
+        }
+
+        if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+            try {
+                connector.createGooMember(grouperGroup, member.getSubject(), connector.determineRole(member, grouperGroup));
+            } catch (IOException e) {
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing privilege add: {}", new Object[]{consumerName,
+                        toString(changeLogEntry), e});
+            }
+        }
+
+    }
+
+    /**
+     * Update a privilege entry.
+     *
+     * @param consumer the change log consumer
+     * @param changeLogEntry the change log entry
+     */
+    protected void processPrivilegeUpdate(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing privilege update.", consumerName,
+                toString(changeLogEntry));
+
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_UPDATE.ownerName);
+        final String privilegeName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_UPDATE.privilegeName);
+        final String memberId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_UPDATE.id);
+
+        final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
+        final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
+
+        if (!connector.shouldSyncGroup(grouperGroup)) {
+            return;
+        }
+
+        if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+            try {
+                connector.updateGooMember(grouperGroup, member.getSubject(), connector.determineRole(member, grouperGroup));
+            } catch (IOException e) {
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing privilege update: {}", new Object[]{consumerName,
+                        toString(changeLogEntry), e});
+            }
+        }
+
+    }
+
+    /**
+     * Delete a privilege entry.
+     *
+     * @param consumer the change log consumer
+     * @param changeLogEntry the change log entry
+     */
+    protected void processPrivilegeDelete(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
+
+        LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing privilege delete.", consumerName,
+                toString(changeLogEntry));
+
+        final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_DELETE.ownerName);
+        final String privilegeName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_DELETE.privilegeName);
+        final String memberId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.PRIVILEGE_DELETE.memberId);
+
+        final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
+        final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
+
+        if (!connector.shouldSyncGroup(grouperGroup)) {
+            return;
+        }
+
+        if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
+            try {
+                if (grouperGroup.hasMember(member.getSubject())) {
+                    connector.updateGooMember(grouperGroup, member.getSubject(), connector.determineRole(member, grouperGroup));
+                } else {
+                    connector.removeGooMembership(grouperGroup.getName(), member.getSubject());
+                }
+
+            } catch (IOException e) {
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Error processing privilege delete: {}",
+                        new Object[]{consumerName, toString(changeLogEntry), e});
+            }
+        }
+
     }
 
     /**

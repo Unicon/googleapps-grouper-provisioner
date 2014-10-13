@@ -53,6 +53,9 @@ public class GoogleAppsSyncProperties {
     /** What to do with deleted Groups: archive, delete, ignore (default) */
     private String handleDeletedGroup;
 
+    /** Which type of privilege becomes an owner: none (default), admin, update, both */
+    private String whoCanManage;
+
     public GoogleAppsSyncProperties(String consumerName) {
         final String qualifiedParameterNamespace = PARAMETER_NAMESPACE + consumerName + ".";
 
@@ -115,6 +118,10 @@ public class GoogleAppsSyncProperties {
         handleDeletedGroup =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "handleDeletedGroup", "ignore");
         LOG.debug("Google Apps Consumer - Setting handleDeletedGroup to {}", handleDeletedGroup);
+
+        whoCanManage =
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanManage", "none");
+        LOG.debug("Google Apps Consumer - Setting whoCanManage to {}", whoCanManage);
 
         defaultGroupSettings.setWhoCanViewMembership(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanViewMembership", "ALL_IN_DOMAIN_CAN_VIEW"));
@@ -265,4 +272,7 @@ public class GoogleAppsSyncProperties {
         return serviceAccountPKCS12FilePath;
     }
 
+    public String getWhoCanManage() {
+        return whoCanManage;
+    }
 }

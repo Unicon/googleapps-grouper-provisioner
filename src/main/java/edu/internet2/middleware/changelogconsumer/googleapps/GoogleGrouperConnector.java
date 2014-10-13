@@ -315,9 +315,20 @@ public class GoogleGrouperConnector {
                 }
 
                 if (user != null) {
-                    createGooMember(googleGroup, user, "MEMBER");
+                    createGooMember(googleGroup, user, determineRole(member, grouperGroup));
                 }
             }
+        }
+    }
+
+    public String determineRole(edu.internet2.middleware.grouper.Member member, edu.internet2.middleware.grouper.Group group) {
+        if ((properties.getWhoCanManage().equalsIgnoreCase("BOTH") && (member.canUpdate(group) || member.canAdmin(group)))
+                || (properties.getWhoCanManage().equalsIgnoreCase("ADMIN") && member.canAdmin(group))
+                || (properties.getWhoCanManage().equalsIgnoreCase("UPDATE") && member.canUpdate(group))
+           ) {
+            return "MANAGER";
+        } else {
+            return "MEMBER";
         }
     }
 
@@ -485,6 +496,37 @@ public class GoogleGrouperConnector {
 
     public HashMap<String, String> getSyncedGroupsAndStems() {
         return syncedObjects;
+    }
+
+    public void createGooMember(edu.internet2.middleware.grouper.Group group, Subject subject, String role) throws IOException {
+        User user = fetchGooUser(addressFormatter.qualifySubjectAddress(subject.getId()));
+
+        if (user == null) {
+            user = createGooUser(subject);
+        }
+
+        Group gooGroup = fetchGooGroup(addressFormatter.qualifyGroupAddress(group.getName()));
+        if (user != null && gooGroup != null) {
+            createGooMember(gooGroup, user, role);
+        }
+    }
+
+
+    public void updateGooMember(edu.internet2.middleware.grouper.Group group, Subject subject, String role) throws IOException {
+        User user = fetchGooUser(addressFormatter.qualifySubjectAddress(subject.getId()));
+        Group gooGroup = fetchGooGroup(addressFormatter.qualifyGroupAddress(group.getName()));
+
+        Member member = GoogleAppsSdkUtils.retrieveGroupMember(directoryClient, gooGroup.getEmail(), user.getPrimaryEmail());
+
+        if (member == null) {
+            createGooMember(gooGroup, user, role);
+            return;
+        }
+
+        if (member.getRole() != role) {
+            member.setRole(role);
+            GoogleAppsSdkUtils.updateGroupMember(directoryClient, gooGroup.getEmail(), user.getPrimaryEmail(), member);
+        }
     }
 }
 

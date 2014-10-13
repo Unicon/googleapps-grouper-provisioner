@@ -235,16 +235,22 @@ public class GoogleAppsFullSync {
                     processMissingGroupMembers(item, missingMembers, gooGroup, dryRun);
 
                     Collection<ComparableMemberItem> matchedMembers = CollectionUtils.intersection(grouperMembers, googleMembers);
-                    processMatchedGroupMembers(matchedMembers, dryRun);
+                    processMatchedGroupMembers(item, matchedMembers, dryRun);
                 }
             }
         }
     }
 
-    private void processMatchedGroupMembers(Collection<ComparableMemberItem> matchedMembers, boolean dryRun) {
+    private void processMatchedGroupMembers(ComparableGroupItem group, Collection<ComparableMemberItem> matchedMembers, boolean dryRun) {
         for (ComparableMemberItem member : matchedMembers) {
             if (!dryRun) {
-                //check the privilege level when implemented
+                edu.internet2.middleware.grouper.Member grouperMember = member.getGrouperMember();
+
+                try {
+                    connector.updateGooMember(group.getGrouperGroup(), grouperMember.getSubject(), connector.determineRole(grouperMember, group.getGrouperGroup()));
+                } catch (IOException e) {
+                    LOG.error("Google Apps Consume '{}' Full Sync - Error updating existing user ({}) from existing group ({}): {}", new Object[]{consumerName, member.getEmail(), group.getName(), e.getMessage()});
+                }
             }
         }
     }
@@ -266,7 +272,7 @@ public class GoogleAppsFullSync {
 
                 if (user != null) {
                     try {
-                        connector.createGooMember(gooGroup, user, "MEMBER");
+                        connector.createGooMember(gooGroup, user, connector.determineRole(member.getGrouperMember(), group.getGrouperGroup()));
                     } catch (IOException e) {
                         LOG.error("Google Apps Consume '{}' Full Sync - Error creating missing member ({}) from extra group ({}): {}", new Object[]{consumerName, member.getEmail(), group.getName(), e.getMessage()});
                     }
