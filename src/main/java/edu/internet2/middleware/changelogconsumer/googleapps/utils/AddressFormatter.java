@@ -45,7 +45,7 @@ public class AddressFormatter {
 
     public String qualifyGroupAddress(String group) {
         final JexlContext context = new MapContext();
-        context.set("groupName", group);
+        context.set("groupPath", group);
 
         final String mailbox = groupIdentifierExp.evaluate(context).toString();
 

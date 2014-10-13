@@ -30,7 +30,7 @@ public class AddressFormatterTest {
     public void testQualifyAddressSimple() {
         AddressFormatter addressFormatter = new AddressFormatter();
         addressFormatter
-                .setGroupIdentifierExpression("crs-${groupName}-test")
+                .setGroupIdentifierExpression("crs-${groupPath}-test")
                 .setDomain("test.edu");
 
         String expected = "crs-abc1-abc2-test@test.edu";
@@ -42,7 +42,7 @@ public class AddressFormatterTest {
     public void testQualifyAddressComplex() {
         AddressFormatter addressFormatter = new AddressFormatter();
             addressFormatter
-                    .setGroupIdentifierExpression("crs-${groupName.replace(\"abc1:\", \"\")}-test")
+                    .setGroupIdentifierExpression("crs-${groupPath.replace(\"abc1:\", \"\")}-test")
                     .setDomain("test.edu");
 
         String expected = "crs-abc2-test@test.edu";

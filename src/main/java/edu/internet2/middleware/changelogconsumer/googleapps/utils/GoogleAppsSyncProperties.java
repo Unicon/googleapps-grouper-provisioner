@@ -27,6 +27,8 @@ public class GoogleAppsSyncProperties {
     private int googleUserCacheValidity;
     private int googleGroupCacheValidity;
 
+    private boolean retryOnError;
+
     /** Whether or not to provision users. */
     private boolean provisionUsers;
 
@@ -262,7 +264,5 @@ public class GoogleAppsSyncProperties {
     public String getServiceAccountPKCS12FilePath() {
         return serviceAccountPKCS12FilePath;
     }
-
-    private boolean retryOnError;
 
 }
