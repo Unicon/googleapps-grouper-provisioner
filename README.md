@@ -6,9 +6,11 @@ This project is a [Grouper](http://grouper.internet2.edu/) change log consumer a
 ### Features
 The Google Apps provisioner has the following features:
 
-* Supports multiple provisioner instances/configurations
+* Supports multiple provisioner instances/configurations.
 * Fine-grain control over which groups are provisioned.
-* Optionally can provision Google user accounts.
+* Configure Google's "advanced" group settings.
+* Optionally, set users with admin/update Grouper privileges as Google Group managers.
+* Optionally, can provision Google user accounts.
 
 ### Instructions
 Instructions on installation, configuration, and execution can be found on the [project's wiki](https://github.com/Unicon/googleapps-grouper-provisioner/wiki).
