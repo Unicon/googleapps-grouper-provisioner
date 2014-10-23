@@ -58,6 +58,8 @@ public class GoogleAppsSyncProperties {
 
     private String googleGroupFilter;
 
+    private boolean ignoreExtraGoogleMembers;
+
     public GoogleAppsSyncProperties(String consumerName) {
         final String qualifiedParameterNamespace = PARAMETER_NAMESPACE + consumerName + ".";
 
@@ -203,13 +205,15 @@ public class GoogleAppsSyncProperties {
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "includeInGlobalAddressList", "true"));
         LOG.debug("Google Apps Consumer - Setting includeInGlobalAddressList to {}", defaultGroupSettings.getIncludeInGlobalAddressList());
 
-        // retry on error
         retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "retryOnError", false);
         LOG.debug("Google Apps Consumer - Setting retryOnError to {}", retryOnError);
 
-        // retry on error
         googleGroupFilter = GrouperLoaderConfig.retrieveConfig().propertyValueString(PARAMETER_NAMESPACE + "googleGroupFilter", ".*");
         LOG.debug("Google Apps Consumer - Setting googleGroupFilter to {}", googleGroupFilter);
+
+        ignoreExtraGoogleMembers = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "ignoreExtraGoogleMembers", true);
+        LOG.debug("Google Apps Consumer - Setting ignoreExtraGoogleMembers to {}", ignoreExtraGoogleMembers);
+
     }
 
     public boolean isRetryOnError() {
@@ -285,4 +289,6 @@ public class GoogleAppsSyncProperties {
     }
 
     public String getGoogleGroupFilter() { return googleGroupFilter; }
+
+    public boolean shouldIgnoreExtraGoogleMembers() { return ignoreExtraGoogleMembers; }
 }
