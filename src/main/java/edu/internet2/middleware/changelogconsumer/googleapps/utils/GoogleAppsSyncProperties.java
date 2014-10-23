@@ -56,8 +56,12 @@ public class GoogleAppsSyncProperties {
     /** Which type of privilege becomes an owner: none (default), admin, update, both */
     private String whoCanManage;
 
+    private String googleGroupFilter;
+
     public GoogleAppsSyncProperties(String consumerName) {
         final String qualifiedParameterNamespace = PARAMETER_NAMESPACE + consumerName + ".";
+
+        LOG.debug("Google Apps Consumer - Setting properties for {} consumer/provisioner.", consumerName);
 
         serviceAccountPKCS12FilePath =
                 GrouperLoaderConfig.retrieveConfig().propertyValueStringRequired(qualifiedParameterNamespace + "serviceAccountPKCS12FilePath");
@@ -201,7 +205,11 @@ public class GoogleAppsSyncProperties {
 
         // retry on error
         retryOnError = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "retryOnError", false);
-        LOG.debug("Google Apps Consumer - Setting retry on error to {}", retryOnError);
+        LOG.debug("Google Apps Consumer - Setting retryOnError to {}", retryOnError);
+
+        // retry on error
+        googleGroupFilter = GrouperLoaderConfig.retrieveConfig().propertyValueString(PARAMETER_NAMESPACE + "googleGroupFilter", ".*");
+        LOG.debug("Google Apps Consumer - Setting googleGroupFilter to {}", googleGroupFilter);
     }
 
     public boolean isRetryOnError() {
@@ -275,4 +283,6 @@ public class GoogleAppsSyncProperties {
     public String getWhoCanManage() {
         return whoCanManage;
     }
+
+    public String getGoogleGroupFilter() { return googleGroupFilter; }
 }
