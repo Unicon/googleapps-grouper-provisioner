@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.regex.Pattern;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.time.StopWatch;
 import org.slf4j.Logger;
@@ -103,6 +105,8 @@ public class GoogleAppsFullSync {
 
         GoogleAppsSyncProperties properties = new GoogleAppsSyncProperties(consumerName);
 
+        Pattern googleGroupFilter = Pattern.compile(properties.getGoogleGroupFilter());
+
         try {
             connector.initialize(consumerName, properties);
 
@@ -138,7 +142,12 @@ public class GoogleAppsFullSync {
             //Populate a comparable list of Google groups
             ArrayList<ComparableGroupItem> googleGroups = new ArrayList<ComparableGroupItem>();
             for (String groupName : GoogleCacheManager.googleGroups().getKeySet()) {
-                googleGroups.add(new ComparableGroupItem(groupName));
+                if (googleGroupFilter.matcher(groupName.replace("@" + properties.getGoogleDomain(), "")).find()) {
+                    googleGroups.add(new ComparableGroupItem(groupName));
+                    LOG.debug("Google Apps Consumer '{}' Full Sync - {} group matches group filter: included", consumerName, groupName);
+                } else {
+                    LOG.debug("Google Apps Consumer '{}' Full Sync - {} group does not match group filter: ignored", consumerName, groupName);
+                }
             }
 
             //Get our sets
