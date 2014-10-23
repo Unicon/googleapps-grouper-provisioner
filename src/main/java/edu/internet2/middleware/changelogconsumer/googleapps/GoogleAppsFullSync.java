@@ -55,6 +55,7 @@ public class GoogleAppsFullSync {
 
     private GoogleGrouperConnector connector;
     private String consumerName;
+    private GoogleAppsSyncProperties properties;
 
     public GoogleAppsFullSync(String consumerName) {
         this.consumerName = consumerName;
@@ -103,7 +104,7 @@ public class GoogleAppsFullSync {
         GoogleCacheManager.googleGroups().clear();
         GoogleCacheManager.googleGroups().clear();
 
-        GoogleAppsSyncProperties properties = new GoogleAppsSyncProperties(consumerName);
+        properties = new GoogleAppsSyncProperties(consumerName);
 
         Pattern googleGroupFilter = Pattern.compile(properties.getGoogleGroupFilter());
 
@@ -238,7 +239,9 @@ public class GoogleAppsFullSync {
                     }
 
                     Collection<ComparableMemberItem> extraMembers = CollectionUtils.subtract(googleMembers, grouperMembers);
-                    processExtraGroupMembers(item, extraMembers, dryRun);
+                    if (!properties.shouldIgnoreExtraGoogleMembers()) {
+                        processExtraGroupMembers(item, extraMembers, dryRun);
+                    }
 
                     Collection<ComparableMemberItem> missingMembers = CollectionUtils.subtract(grouperMembers, googleMembers);
                     processMissingGroupMembers(item, missingMembers, gooGroup, dryRun);
