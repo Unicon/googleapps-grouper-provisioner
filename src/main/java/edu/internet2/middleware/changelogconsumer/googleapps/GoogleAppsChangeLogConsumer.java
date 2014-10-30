@@ -521,13 +521,14 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
      * @param changeLogEntry the change log entry
      */
     protected void processMembershipAdd(GoogleAppsChangeLogConsumer consumer, ChangeLogEntry changeLogEntry) {
-        final String ROLE = "MEMBER"; //Other types are ADMIN and OWNER. Neither makes sense for managed groups.
 
         LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Processing membership add.", consumerName,
                 toString(changeLogEntry));
 
         final String groupName = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.groupName);
+        final String memberId = changeLogEntry.retrieveValueForLabel(ChangeLogLabels.MEMBERSHIP_ADD.memberId);
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
+        final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
             return;
@@ -554,7 +555,7 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                 }
 
                 if (user != null) {
-                    connector.createGooMember(group, user, ROLE);
+                    connector.createGooMember(group, user, connector.determineRole(member, grouperGroup));
                 }
             }
 

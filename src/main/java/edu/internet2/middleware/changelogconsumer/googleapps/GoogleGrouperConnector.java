@@ -324,7 +324,7 @@ public class GoogleGrouperConnector {
     public String determineRole(edu.internet2.middleware.grouper.Member member, edu.internet2.middleware.grouper.Group group) {
         if ((properties.getWhoCanManage().equalsIgnoreCase("BOTH") && (member.canUpdate(group) || member.canAdmin(group)))
                 || (properties.getWhoCanManage().equalsIgnoreCase("ADMIN") && member.canAdmin(group))
-                || (properties.getWhoCanManage().equalsIgnoreCase("UPDATE") && member.canUpdate(group))
+                || (properties.getWhoCanManage().equalsIgnoreCase("UPDATE") && member.canUpdate(group) && !member.canAdmin(group))
            ) {
             return "MANAGER";
         } else {
