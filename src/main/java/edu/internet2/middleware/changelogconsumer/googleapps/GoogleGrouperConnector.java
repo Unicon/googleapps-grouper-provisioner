@@ -121,10 +121,7 @@ public class GoogleGrouperConnector {
                 .setDomain(properties.getGoogleDomain());
 
         GoogleCacheManager.googleUsers().setCacheValidity(properties.getGoogleUserCacheValidity());
-        populateGooUsersCache(directoryClient);
-
         GoogleCacheManager.googleGroups().setCacheValidity(properties.getGoogleGroupCacheValidity());
-        populateGooGroupsCache(directoryClient);
 
         grouperSubjects.setCacheValidity(5);
         grouperSubjects.seed(1000);
@@ -133,11 +130,18 @@ public class GoogleGrouperConnector {
         grouperGroups.seed(100);
     }
 
+    /**
+     * populates the Google user and group caches.
+     */
+    public void populateGoogleCache() {
+        populateGooUsersCache(directoryClient);
+        populateGooGroupsCache(directoryClient);
+    }
 
     public void populateGooUsersCache(Directory directory) {
         LOG.debug("Google Apps Consumer '{}' - Populating the userCache.", consumerName);
 
-        if (GoogleCacheManager.googleUsers() == null || GoogleCacheManager.googleUsers().isExpired()) {
+        if (GoogleCacheManager.googleUsers().isExpired()) {
             try {
                 final List<User> list = GoogleAppsSdkUtils.retrieveAllUsers(directoryClient);
                 GoogleCacheManager.googleUsers().seed(list);
@@ -153,7 +157,7 @@ public class GoogleGrouperConnector {
     public void populateGooGroupsCache(Directory directory) {
         LOG.debug("Google Apps Consumer '{}' - Populating the groupCache.", consumerName);
 
-        if (GoogleCacheManager.googleGroups() == null || GoogleCacheManager.googleGroups().isExpired()) {
+        if (GoogleCacheManager.googleGroups().isExpired()) {
             try {
                 final List<Group> list = GoogleAppsSdkUtils.retrieveAllGroups(directoryClient);
                 GoogleCacheManager.googleGroups().seed(list);

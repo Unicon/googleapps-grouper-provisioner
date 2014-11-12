@@ -26,6 +26,8 @@ public class GoogleAppsSyncProperties {
 
     private int googleUserCacheValidity;
     private int googleGroupCacheValidity;
+    private boolean prefillGoogleCachesForConsumer;
+    private boolean prefillGoogleCachesForFullSync;
 
     private boolean retryOnError;
 
@@ -120,6 +122,13 @@ public class GoogleAppsSyncProperties {
         googleGroupCacheValidity =
                 GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "googleGroupCacheValidityPeriod", 30);
         LOG.debug("Google Apps Consumer - Setting googleGroupCacheValidityPeriod to {}", googleGroupCacheValidity);
+
+        prefillGoogleCachesForConsumer = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "prefillGoogleCachesForConsumer", false);
+        LOG.debug("Google Apps Consumer - Setting prefillGoogleCachesForConsumer to {}", prefillGoogleCachesForConsumer);
+
+        prefillGoogleCachesForFullSync = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "prefillGoogleCachesForFullSync", false);
+        LOG.debug("Google Apps Consumer - Setting prefillGoogleCachesForFullSync to {}", prefillGoogleCachesForFullSync);
+
 
         handleDeletedGroup =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "handleDeletedGroup", "ignore");
@@ -258,6 +267,14 @@ public class GoogleAppsSyncProperties {
 
     public int getGoogleUserCacheValidity() {
         return googleUserCacheValidity;
+    }
+
+    public boolean getprefillGoogleCachesForConsumer() {
+        return prefillGoogleCachesForConsumer;
+    }
+
+    public boolean getprefillGoogleCachesForFullSync() {
+        return prefillGoogleCachesForFullSync;
     }
 
     public String getSubjectIdentifierExpression() {
