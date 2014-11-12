@@ -111,6 +111,10 @@ public class GoogleAppsFullSync {
         try {
             connector.initialize(consumerName, properties);
 
+            if (properties.getprefillGoogleCachesForFullSync()) {
+                connector.populateGoogleCache();
+            }
+
         } catch (GeneralSecurityException e) {
             LOG.error("Google Apps Consume '{}' Full Sync - This consumer failed to initialize: {}", consumerName, e.getMessage());
         } catch (IOException e) {

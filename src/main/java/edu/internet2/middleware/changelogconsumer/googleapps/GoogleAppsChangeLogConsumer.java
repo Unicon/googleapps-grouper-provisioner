@@ -176,6 +176,11 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
 
         try {
             connector.initialize(consumerName, properties);
+
+            if (properties.getprefillGoogleCachesForConsumer()) {
+                connector.populateGoogleCache();
+            }
+
         } catch (Exception e) {
             LOG.error("Google Apps Consumer '{}' - This consumer failed to initialize: {}", consumerName, e.getMessage());
             return changeLogEntryList.get(0).getSequenceNumber() - 1;
