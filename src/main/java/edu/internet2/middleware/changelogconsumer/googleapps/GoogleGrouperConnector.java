@@ -34,6 +34,7 @@ import edu.internet2.middleware.changelogconsumer.googleapps.cache.Cache;
 import edu.internet2.middleware.changelogconsumer.googleapps.cache.GoogleCacheManager;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.AddressFormatter;
 import edu.internet2.middleware.changelogconsumer.googleapps.utils.GoogleAppsSyncProperties;
+import edu.internet2.middleware.changelogconsumer.googleapps.utils.RecentlyManipulatedObjectsList;
 import edu.internet2.middleware.grouper.*;
 import edu.internet2.middleware.grouper.attr.AttributeDef;
 import edu.internet2.middleware.grouper.attr.AttributeDefName;
@@ -50,10 +51,8 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,6 +85,7 @@ public class GoogleGrouperConnector {
     private AttributeDefName syncAttribute;
     private GoogleAppsSyncProperties properties;
     private AddressFormatter addressFormatter;
+    private RecentlyManipulatedObjectsList recentlyManipulatedObjectsList;
 
     public GoogleGrouperConnector() {
         grouperSubjects = new Cache<Subject>();
@@ -94,7 +94,7 @@ public class GoogleGrouperConnector {
         addressFormatter = new AddressFormatter();
     }
 
-    public void initialize(String consumerName, GoogleAppsSyncProperties properties) throws GeneralSecurityException, IOException {
+    public void initialize(String consumerName, final GoogleAppsSyncProperties properties) throws GeneralSecurityException, IOException {
         this.consumerName = consumerName;
         this.properties = properties;
 
@@ -128,6 +128,8 @@ public class GoogleGrouperConnector {
 
         grouperGroups.setCacheValidity(5);
         grouperGroups.seed(100);
+
+        recentlyManipulatedObjectsList = new RecentlyManipulatedObjectsList(properties.getRecentlyManipulatedQueueSize(), properties.getRecentlyManipulatedQueueDelay());
     }
 
     /**
@@ -261,20 +263,28 @@ public class GoogleGrouperConnector {
         gMember.setEmail(user.getPrimaryEmail())
                 .setRole(role);
 
+        recentlyManipulatedObjectsList.delayIfNeeded(gMember.getEmail());
         GoogleAppsSdkUtils.addGroupMember(directoryClient, group.getEmail(), gMember);
+        recentlyManipulatedObjectsList.add(gMember.getEmail());
     }
 
     public void createGooGroupIfNecessary(edu.internet2.middleware.grouper.Group grouperGroup) throws IOException {
         final String groupKey = addressFormatter.qualifyGroupAddress(grouperGroup.getName());
 
         Group googleGroup = fetchGooGroup(groupKey);
+        recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
+
         if (googleGroup == null) {
             googleGroup = new Group();
             googleGroup.setName(grouperGroup.getDisplayExtension())
                     .setEmail(groupKey)
                     .setDescription(grouperGroup.getDescription());
-            GoogleCacheManager.googleGroups().put(GoogleAppsSdkUtils.addGroup(directoryClient, googleGroup));
 
+
+            GoogleCacheManager.googleGroups().put(GoogleAppsSdkUtils.addGroup(directoryClient, googleGroup));
+            recentlyManipulatedObjectsList.add(groupKey);
+
+            recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
             final Groups groupSettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
             final Groups defaultGroupSettings = properties.getDefaultGroupSettings();
             groupSettings.setWhoCanViewMembership(defaultGroupSettings.getWhoCanViewMembership())
@@ -297,13 +307,17 @@ public class GoogleGrouperConnector {
                     .setMessageDisplayFont(defaultGroupSettings.getMessageDisplayFont())
                     .setIncludeInGlobalAddressList(defaultGroupSettings.getIncludeInGlobalAddressList());
             GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupSettings);
+            recentlyManipulatedObjectsList.add(groupKey);
+
 
         } else {
+            recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
             Groups groupssettings = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
 
             if (groupssettings.getArchiveOnly().equalsIgnoreCase("true")) {
                 groupssettings.setArchiveOnly("false");
                 GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, groupssettings);
+                recentlyManipulatedObjectsList.add(groupKey);
             }
         }
 
@@ -350,13 +364,21 @@ public class GoogleGrouperConnector {
 
     public void deleteGooGroupByEmail(String groupKey) throws IOException {
         if (properties.getHandleDeletedGroup().equalsIgnoreCase("archive")) {
+            recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
+
             Groups gs = GoogleAppsSdkUtils.retrieveGroupSettings(groupssettingsClient, groupKey);
             gs.setArchiveOnly("true");
             GoogleAppsSdkUtils.updateGroupSettings(groupssettingsClient, groupKey, gs);
 
+            recentlyManipulatedObjectsList.add(groupKey);
+
         } else if (properties.getHandleDeletedGroup().equalsIgnoreCase("delete")) {
+            recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
+
             GoogleAppsSdkUtils.removeGroup(directoryClient, groupKey);
             GoogleCacheManager.googleGroups().remove(groupKey);
+
+            recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
         }
         //else "ignore" (we do nothing)
 
@@ -478,7 +500,9 @@ public class GoogleGrouperConnector {
         final String groupKey = addressFormatter.qualifyGroupAddress(groupName);
         final String userKey = addressFormatter.qualifySubjectAddress(subject.getId());
 
+        recentlyManipulatedObjectsList.delayIfNeeded(userKey);
         GoogleAppsSdkUtils.removeGroupMember(directoryClient, groupKey, userKey);
+        recentlyManipulatedObjectsList.add(userKey);
 
         if (properties.shouldDeprovisionUsers()) {
             //FUTURE: check if the user has other memberships and if not, initiate the removal here.
@@ -487,7 +511,11 @@ public class GoogleGrouperConnector {
         }
 
     public Group updateGooGroup(String groupKey, Group group) throws IOException {
-        return GoogleAppsSdkUtils.updateGroup(directoryClient, groupKey, group);
+        recentlyManipulatedObjectsList.delayIfNeeded(groupKey);
+        final Group gooGroup = GoogleAppsSdkUtils.updateGroup(directoryClient, groupKey, group);
+        recentlyManipulatedObjectsList.add(groupKey);
+
+        return gooGroup;
     }
 
     public List<Member> getGooMembership(String groupKey) throws IOException {
@@ -520,6 +548,7 @@ public class GoogleGrouperConnector {
         User user = fetchGooUser(addressFormatter.qualifySubjectAddress(subject.getId()));
         Group gooGroup = fetchGooGroup(addressFormatter.qualifyGroupAddress(group.getName()));
 
+        recentlyManipulatedObjectsList.delayIfNeeded(gooGroup.getEmail());
         Member member = GoogleAppsSdkUtils.retrieveGroupMember(directoryClient, gooGroup.getEmail(), user.getPrimaryEmail());
 
         if (member == null) {
@@ -530,6 +559,7 @@ public class GoogleGrouperConnector {
         if (member.getRole() != role) {
             member.setRole(role);
             GoogleAppsSdkUtils.updateGroupMember(directoryClient, gooGroup.getEmail(), user.getPrimaryEmail(), member);
+            recentlyManipulatedObjectsList.add(user.getPrimaryEmail());
         }
     }
 }
