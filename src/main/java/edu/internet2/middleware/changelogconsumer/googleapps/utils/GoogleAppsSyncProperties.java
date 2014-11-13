@@ -1,3 +1,20 @@
+/*
+ * Licensed to the University Corporation for Advanced Internet Development,
+ * Inc. (UCAID) under one or more contributor license agreements.  See the
+ * NOTICE file distributed with this work for additional information regarding
+ * copyright ownership. The UCAID licenses this file to You under the Apache
+ * License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package edu.internet2.middleware.changelogconsumer.googleapps.utils;
 
 import com.google.api.services.groupssettings.model.Groups;
@@ -24,8 +41,11 @@ public class GoogleAppsSyncProperties {
     private String groupIdentifierExpression;
     private String subjectIdentifierExpression;
 
+    /** how long should the Google caches be valid */
     private int googleUserCacheValidity;
     private int googleGroupCacheValidity;
+
+    /** should the Google caches be pre-filled at start-up to take advantage of bath queries */
     private boolean prefillGoogleCachesForConsumer;
     private boolean prefillGoogleCachesForFullSync;
 
@@ -61,6 +81,10 @@ public class GoogleAppsSyncProperties {
     private String googleGroupFilter;
 
     private boolean ignoreExtraGoogleMembers;
+
+    /** Newly deleted objects aren't always removed ASAP, nor are newly created/updated object ready immediately */
+    private int recentlyManipulatedQueueSize;
+    private int recentlyManipulatedQueueDelay;
 
     public GoogleAppsSyncProperties(String consumerName) {
         final String qualifiedParameterNamespace = PARAMETER_NAMESPACE + consumerName + ".";
@@ -129,7 +153,6 @@ public class GoogleAppsSyncProperties {
         prefillGoogleCachesForFullSync = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "prefillGoogleCachesForFullSync", false);
         LOG.debug("Google Apps Consumer - Setting prefillGoogleCachesForFullSync to {}", prefillGoogleCachesForFullSync);
 
-
         handleDeletedGroup =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "handleDeletedGroup", "ignore");
         LOG.debug("Google Apps Consumer - Setting handleDeletedGroup to {}", handleDeletedGroup);
@@ -137,6 +160,15 @@ public class GoogleAppsSyncProperties {
         whoCanManage =
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanManage", "none");
         LOG.debug("Google Apps Consumer - Setting whoCanManage to {}", whoCanManage);
+
+        recentlyManipulatedQueueSize =
+                GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "recentlyManipulatedQueueSize", 5);
+        LOG.debug("Google Apps Consumer - Setting recentlyManipulatedQueueSize to {}", recentlyManipulatedQueueSize);
+
+        recentlyManipulatedQueueDelay =
+                GrouperLoaderConfig.retrieveConfig().propertyValueInt(qualifiedParameterNamespace + "recentlyManipulatedQueueDelay", 2);
+        LOG.debug("Google Apps Consumer - Setting recentlyManipulatedQueueDelay to {}", recentlyManipulatedQueueDelay);
+
 
         defaultGroupSettings.setWhoCanViewMembership(
                 GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "whoCanViewMembership", "ALL_IN_DOMAIN_CAN_VIEW"));
@@ -308,4 +340,12 @@ public class GoogleAppsSyncProperties {
     public String getGoogleGroupFilter() { return googleGroupFilter; }
 
     public boolean shouldIgnoreExtraGoogleMembers() { return ignoreExtraGoogleMembers; }
+
+    public int getRecentlyManipulatedQueueSize() {
+        return recentlyManipulatedQueueSize;
+    }
+
+    public int getRecentlyManipulatedQueueDelay() {
+        return recentlyManipulatedQueueDelay;
+    }
 }
