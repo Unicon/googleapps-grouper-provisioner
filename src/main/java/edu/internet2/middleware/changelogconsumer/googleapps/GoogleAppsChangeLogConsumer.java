@@ -469,15 +469,19 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         edu.internet2.middleware.grouper.Group grouperGroup;
 
         try {
+            grouperGroup = connector.fetchGrouperGroup(groupName);
+            if (!connector.shouldSyncGroup(grouperGroup)) {
+                return;
+            }
+
             //Group moves are a bit different than just a property change, let's take care of it now.
             if (propertyChanged.equalsIgnoreCase("name")) {
                 String oldAddress = connector.getAddressFormatter().qualifyGroupAddress(propertyOldValue);
                 String newAddress = connector.getAddressFormatter().qualifyGroupAddress(propertyNewValue);
 
-                grouperGroup = connector.fetchGrouperGroup(groupName);
                 group = connector.fetchGooGroup(oldAddress);
 
-                if (group != null && connector.shouldSyncGroup(grouperGroup)) {
+                if (group != null) {
                     group.setEmail(newAddress);
 
                     if (group.getAliases() == null) {
@@ -491,11 +495,6 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
                     GoogleCacheManager.googleGroups().put(connector.updateGooGroup(oldAddress, group));
                 }
 
-                return;
-            }
-
-            grouperGroup = connector.fetchGrouperGroup(groupName);
-            if (!connector.shouldSyncGroup(grouperGroup)) {
                 return;
             }
 
