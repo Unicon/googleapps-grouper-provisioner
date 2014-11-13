@@ -20,7 +20,6 @@ package edu.internet2.middleware.changelogconsumer.googleapps;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
 
@@ -107,8 +106,7 @@ public class GoogleAppsChangeLogConsumerTest {
         } catch (Exception e) {
             System.out.println("unit-test.properties configuration not found. Try again! Love, Grumpy Cat");
         }
-        
-        
+
     }
 
     @Before
