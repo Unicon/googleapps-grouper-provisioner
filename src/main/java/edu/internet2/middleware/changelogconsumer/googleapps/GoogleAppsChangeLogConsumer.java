@@ -683,7 +683,10 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
         final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
-        if (!connector.shouldSyncGroup(grouperGroup)) {
+        if (grouperGroup == null || !connector.shouldSyncGroup(grouperGroup)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping privilege delete, nothing to do cause the group is gone", consumerName,
+                    toString(changeLogEntry));
+
             return;
         }
 
