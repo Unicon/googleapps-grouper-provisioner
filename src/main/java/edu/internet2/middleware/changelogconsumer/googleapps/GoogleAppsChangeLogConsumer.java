@@ -415,6 +415,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final edu.internet2.middleware.grouper.Group group = connector.fetchGrouperGroup(groupName);
 
         if (!connector.shouldSyncGroup(group)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping group add, nothing to do cause the group is not flagged or is gone.", consumerName,
+                    toString(changeLogEntry));
             return;
         }
 
@@ -440,6 +442,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping group delete, nothing to do cause the group is not flagged or is gone.", consumerName,
+                    toString(changeLogEntry));
             return;
         }
 
@@ -471,6 +475,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         try {
             grouperGroup = connector.fetchGrouperGroup(groupName);
             if (!connector.shouldSyncGroup(grouperGroup)) {
+                LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping group update, nothing to do cause the group is not flagged or is gone.", consumerName,
+                        toString(changeLogEntry));
                 return;
             }
 
@@ -535,6 +541,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping membership add, nothing to do cause the group is not flagged or is gone.", consumerName,
+                    toString(changeLogEntry));
             return;
         }
 
@@ -584,6 +592,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping membership delete, nothing to do cause the group is not flagged or is gone.", consumerName,
+                    toString(changeLogEntry));
             return;
         }
 
@@ -618,6 +628,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping privilege add, nothing to do cause the group is not flagged or is gone.", consumerName,
+                    toString(changeLogEntry));
+
             return;
         }
 
@@ -651,6 +664,9 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
         if (!connector.shouldSyncGroup(grouperGroup)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping privilege update, nothing to do cause the group is not flagged or is gone.", consumerName,
+                    toString(changeLogEntry));
+
             return;
         }
 
@@ -683,8 +699,8 @@ public class GoogleAppsChangeLogConsumer extends ChangeLogConsumerBase {
         final edu.internet2.middleware.grouper.Group grouperGroup = connector.fetchGrouperGroup(groupName);
         final Member member = MemberFinder.findByUuid(GrouperSession.staticGrouperSession(), memberId, false);
 
-        if (grouperGroup == null || !connector.shouldSyncGroup(grouperGroup)) {
-            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping privilege delete, nothing to do cause the group is gone", consumerName,
+        if (!connector.shouldSyncGroup(grouperGroup)) {
+            LOG.debug("Google Apps Consumer '{}' - Change log entry '{}' Skipping privilege delete, nothing to do cause the group is not flagged or is gone", consumerName,
                     toString(changeLogEntry));
 
             return;
