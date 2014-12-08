@@ -429,6 +429,10 @@ public class GoogleGrouperConnector {
     public boolean shouldSyncGroup(edu.internet2.middleware.grouper.Group group) {
         boolean result;
 
+        if (group == null) {
+            return false;
+        }
+
         final String groupName = group.getName();
 
         if (syncedObjects.containsKey(groupName)) {
