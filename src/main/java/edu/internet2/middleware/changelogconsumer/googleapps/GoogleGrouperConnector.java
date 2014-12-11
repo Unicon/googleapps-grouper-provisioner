@@ -449,6 +449,10 @@ public class GoogleGrouperConnector {
     public boolean shouldSyncStem(Stem stem) {
         boolean result;
 
+        if (stem == null) {
+            return false;
+        }
+
         final String stemName = stem.getName();
 
         if (syncedObjects.containsKey(stemName)) {
