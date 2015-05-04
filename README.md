@@ -1,6 +1,6 @@
 Google Apps Grouper Provisioner
 ==============================
-> This project was developed as part of Unicon's [Open Source Support program](https://unicon.net/support). Professional support/integration assistance for this module is available. For more information, visit <https://unicon.net/opensource/grouper>.
+> Professional support/integration assistance for this module is available. For more information, visit <https://unicon.net/opensource/grouper>.
 
 This project is a [Grouper](http://grouper.internet2.edu/) change log consumer and full sync agent that provisions (and deprovisions) Grouper groups and subjects to a Google Apps for Education/Business domain.
 
