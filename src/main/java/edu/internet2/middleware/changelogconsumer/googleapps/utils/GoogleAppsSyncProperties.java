@@ -82,6 +82,12 @@ public class GoogleAppsSyncProperties {
 
     private boolean ignoreExtraGoogleMembers;
 
+	/** Use this attribute for subject lookups to obtain the Google User */
+	private String attributeForGooUserLookup;
+	
+	/** Append the Domain to this attribute for subject lookups */
+	private boolean appendDomainToGooUserAttribute;
+
     /** Newly deleted objects aren't always removed ASAP, nor are newly created/updated object ready immediately */
     private int recentlyManipulatedQueueSize;
     private int recentlyManipulatedQueueDelay;
@@ -255,6 +261,14 @@ public class GoogleAppsSyncProperties {
         ignoreExtraGoogleMembers = GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(PARAMETER_NAMESPACE + "ignoreExtraGoogleMembers", true);
         LOG.debug("Google Apps Consumer - Setting ignoreExtraGoogleMembers to {}", ignoreExtraGoogleMembers);
 
+		attributeForGooUserLookup =
+                GrouperLoaderConfig.retrieveConfig().propertyValueString(qualifiedParameterNamespace + "attributeForGooUserLookup", null);
+        LOG.debug("Google Apps Consumer - Setting attributeForGooUserLookup to {}", attributeForGooUserLookup);
+
+		appendDomainToGooUserAttribute =
+                GrouperLoaderConfig.retrieveConfig().propertyValueBoolean(qualifiedParameterNamespace + "appendDomainToGooUserAttribute", false);
+        LOG.debug("Google Apps Consumer - Setting appendDomainToGooUserAttribute to {}", appendDomainToGooUserAttribute);
+
     }
 
     public boolean isRetryOnError() {
@@ -348,4 +362,12 @@ public class GoogleAppsSyncProperties {
     public int getRecentlyManipulatedQueueDelay() {
         return recentlyManipulatedQueueDelay;
     }
+
+	public String getAttributeForGooUserLookup() {
+        return attributeForGooUserLookup;
+	}
+
+	public boolean getAppendDomainToGooUserAttribute() { 
+		return appendDomainToGooUserAttribute; 
+	}
 }
