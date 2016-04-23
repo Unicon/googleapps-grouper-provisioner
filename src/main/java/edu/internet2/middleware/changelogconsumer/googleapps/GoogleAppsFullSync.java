@@ -221,7 +221,7 @@ public class GoogleAppsFullSync {
                 ArrayList<ComparableMemberItem> grouperMembers = new ArrayList<ComparableMemberItem>();
                 for (edu.internet2.middleware.grouper.Member member : item.getGrouperGroup().getMembers()) {
                     if (member.getSubjectType() == SubjectTypeEnum.PERSON) {
-                        grouperMembers.add(new ComparableMemberItem(connector.getAddressFormatter().qualifySubjectAddress(member.getSubjectId()), member));
+                        grouperMembers.add(new ComparableMemberItem(connector.fetchGooUserIdentifier(member.getSubject()), member));
                     }
                 }
 
