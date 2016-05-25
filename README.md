@@ -4,6 +4,8 @@ Google Apps Grouper Provisioner
 
 This project is a [Grouper](http://grouper.internet2.edu/) change log consumer and full sync agent that provisions (and deprovisions) Grouper groups and subjects to a Google Apps for Education/Business domain.
 
+## This project's source is now being maintained in the Grouper source repo. It can be found at <https://github.com/Internet2/grouper/tree/master/grouper-misc/googleapps-grouper-provisioner>. All adopters are encouraged to use that source instead.
+
 ### Features
 The Google Apps provisioner has the following features:
 
